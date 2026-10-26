@@ -64,20 +64,46 @@
   .layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
   @media (min-width: 1100px) { .layout.has-detail { grid-template-columns: minmax(0, 1fr) 440px; } }
 
-  /* ---- tree ---- */
-  .node { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow-sm); margin-bottom: 8px; overflow: hidden; }
-  .node > .row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; user-select: none; }
-  .node > .row:hover { background: var(--surface-2); }
-  .node.open > .row { background: var(--tint); border-bottom: 1px solid var(--line); }
-  .node .kids { padding: 8px 8px 4px 22px; background: var(--surface-2); }
-  .node .kids .node { margin-bottom: 6px; }
+  /* ---- org chart (roots) ---- */
+  .chart { position: relative; }
+  .ancestors { display: flex; flex-direction: column; align-items: center; gap: 0; margin-bottom: 2px; }
+  .anc { display: flex; align-items: center; gap: 8px; padding: 5px 12px; border-radius: 999px; background: #fff; border: 1px solid var(--line-2); cursor: pointer; font-size: .78rem; font-weight: 700; color: var(--ink-2); box-shadow: var(--shadow-sm); max-width: 90vw; }
+  .anc:hover { border-color: var(--navy); background: var(--tint); }
+  .anc .kind { font-size: .56rem; }
+  .anc-link { width: 2px; height: 14px; background: var(--line-2); }
+  .focus { margin: 0 auto; max-width: 560px; background: var(--surface); border: 2px solid var(--navy); border-radius: 14px; padding: 14px 18px; box-shadow: var(--shadow-md); position: relative; }
+  .focus .fh { display: flex; align-items: flex-start; gap: 10px; }
+  .focus .ttl { font-size: 1.15rem; white-space: normal; }
+  .focus .sub { white-space: normal; }
+  .focus .fm { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .stem { width: 2px; height: 28px; background: var(--navy); margin: 0 auto; }
+  .roots-wrap { position: relative; padding-top: 2px; }
+  .roots-wrap::before { content: ""; position: absolute; left: 50%; top: 0; width: 2px; height: 14px; background: var(--navy); transform: translateX(-50%); }
+  .roots { display: flex; flex-wrap: wrap; justify-content: center; gap: 22px 14px; padding: 14px 4px 10px; position: relative; animation: grow .22s ease-out; }
+  .roots::before { content: ""; position: absolute; top: 14px; left: 8%; right: 8%; height: 2px; background: var(--navy); border-radius: 2px; }
+  @keyframes grow { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .roots { animation: none; } }
+  .leaf { position: relative; width: 250px; max-width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; box-shadow: var(--shadow-sm); cursor: pointer; transition: transform .12s, box-shadow .12s, border-color .12s; margin-top: 14px; }
+  .leaf::before { content: ""; position: absolute; left: 50%; top: -14px; width: 2px; height: 14px; background: var(--navy); transform: translateX(-50%); }
+  .leaf:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: var(--navy); }
+  .leaf.sel { border-color: var(--navy); box-shadow: 0 0 0 3px rgba(37,29,127,.18); }
+  .leaf .lh { display: flex; align-items: center; gap: 7px; }
+  .leaf .ttl { font-size: .9rem; white-space: normal; }
+  .leaf .sub { white-space: normal; margin-top: 2px; }
+  .leaf .meter { margin-top: 8px; width: 100%; }
+  .leaf .meter .bar { flex: 1; width: auto; }
+  .leaf .meter .cnt { display: none; }
+  .leaf .foot { font-size: .7rem; color: var(--muted); margin-top: 6px; display: flex; justify-content: space-between; gap: 6px; }
+  .leaf.emp { width: 230px; }
+  .leaf.emp .certs { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 7px; }
+  .leaf.ghost { border-style: dashed; background: var(--surface-2); }
+  .grp { width: 100%; text-align: center; font-size: .64rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); margin: 6px 0 -10px; }
   .kind { font-size: .62rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; background: var(--navy); color: #fff; flex-shrink: 0; }
-  .kind.do { background: #4339c4; } .kind.dm { background: #2b64c6; } .kind.store { background: #0f766e; } .kind.un { background: var(--faint); }
-  .ttl { font-weight: 700; font-size: .95rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .sub { font-size: .74rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .chev { color: var(--muted); font-size: 1.1rem; transition: transform .15s; margin-left: 4px; }
-  .node.open > .row .chev { transform: rotate(90deg); }
+  .kind.do { background: #4339c4; } .kind.dm { background: #2b64c6; } .kind.store { background: #0f766e; } .kind.un, .kind.orphans { background: var(--faint); }
+  .ttl { font-weight: 700; min-width: 0; }
+  .sub { font-size: .74rem; color: var(--muted); }
   .grow { flex: 1; min-width: 0; }
+  .notice { background: var(--info-bg); border: 1px solid #bfdbfe; color: var(--info); border-radius: 10px; padding: 10px 14px; font-size: .82rem; margin: 10px auto 0; max-width: 760px; text-align: center; }
 
   /* compliance meter */
   .meter { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
@@ -87,28 +113,19 @@
   .meter .cnt { font-size: .7rem; color: var(--muted); white-space: nowrap; }
   .c-ok { color: var(--ok); } .c-warn { color: var(--warn); } .c-bad { color: var(--bad); } .c-na { color: var(--faint); }
   .b-ok { background: #16a34a; } .b-warn { background: #f59e0b; } .b-bad { background: var(--red); } .b-na { background: var(--line-2); }
-  @media (max-width: 640px) { .meter .bar { width: 60px; } .meter .cnt { display: none; } }
 
   .person-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line-2); background: #fff; font-size: .74rem; font-weight: 600; cursor: pointer; }
   .person-chip:hover { border-color: var(--navy); background: var(--tint); }
   .person-chip .dot { width: 8px; height: 8px; border-radius: 50%; }
 
-  /* ---- employee table ---- */
-  .emp-list { padding: 6px 0 2px; }
-  .emp { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; align-items: center; padding: 8px 10px; border-radius: 8px; cursor: pointer; border: 1px solid transparent; }
-  .emp:hover { background: #fff; border-color: var(--line-2); }
-  .emp.sel { background: #fff; border-color: var(--navy); box-shadow: 0 0 0 2px rgba(37,29,127,.15); }
-  .emp .nm { font-weight: 700; font-size: .9rem; }
-  .emp .pos { font-size: .72rem; color: var(--muted); }
-  .emp .certs { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
   .pill { font-size: .64rem; font-weight: 700; padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
   .pill.ok { background: var(--ok-bg); color: var(--ok); } .pill.warn { background: var(--warn-bg); color: var(--warn); }
   .pill.bad { background: var(--bad-bg); color: var(--bad); } .pill.na { background: var(--line); color: var(--muted); }
   .pill.info { background: var(--info-bg); color: var(--info); }
   .pill.train { background: #ede9fe; color: #5b21b6; }
   .pill.fm { background: var(--tint-2); color: var(--navy); }
-  .group-h { font-size: .64rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); margin: 10px 0 4px 10px; }
-  .empty { padding: 14px; color: var(--muted); font-size: .85rem; text-align: center; }
+  .empty { padding: 14px; color: var(--muted); font-size: .85rem; text-align: center; width: 100%; }
+  .nm { font-weight: 700; font-size: .9rem; } .pos { font-size: .72rem; color: var(--muted); }
 
   /* ---- detail panel ---- */
   .detail { background: var(--surface); border: 1px solid var(--line); border-top: 3px solid var(--red); border-radius: 12px; box-shadow: var(--shadow-md); padding: 16px; position: sticky; top: 70px; max-height: calc(100dvh - 90px); overflow-y: auto; }
@@ -413,7 +430,6 @@ let tree = null;            // hierarchy built from FindMi
 let storeIndex = {};        // storeNum digits -> store node
 let unlocked = false;
 let view = "all";
-let open = { do: null, dm: null, store: null };   // expanded path (accordion)
 let selectedId = null;
 let searchQ = "";
 let fsClient = null;
@@ -443,7 +459,7 @@ function personName(raw) {   // "HORRELL, JACOB E" -> "Jacob E Horrell"
 }
 function normName(n) { return String(n || "").toLowerCase().replace(/[^a-z ]+/g, " ").replace(/\s+/g, " ").trim(); }
 function samePerson(a, b) {
-  const A = normName(a).split(" ").filter(Boolean), B = normName(b).split(" ").filter(Boolean);
+  const A = normName(personName(a)).split(" ").filter(Boolean), B = normName(personName(b)).split(" ").filter(Boolean);
   if (!A.length || !B.length) return false;
   if (A.join(" ") === B.join(" ")) return true;
   const [s, l] = A.length <= B.length ? [A, B] : [B, A];
@@ -494,7 +510,7 @@ function buildTree() {
                email: vpRec ? vpRec.email : VP_EMAIL, phone: vpRec ? vpRec.phone : "", pos: "VP", children: [] };
 
   const storeNode = r => {
-    const num = digits(r.storeNumber);
+    const num = digits(r.storeNumber) || ((String(r.storeName || "").match(/\b(\d{3,6})\b/) || [])[1] || "");
     const node = { kind: "store", id: "store_" + (num || r.id), num, name: storeShort(r), fullName: r.storeName || "",
                    address: r.address || "", phone: r.phone || "", email: r.email || "", managers: managersOf(r),
                    dmIds: coachIds(r).filter(id => coaches[id]), doId: directors[r.assignedDirectorId] ? r.assignedDirectorId : "" };
@@ -637,104 +653,133 @@ function renderStrip() {
     <div class="stat warn"><div class="l">Expiring</div><div class="v c-warn">${a.expiring}</div><div class="s">within ${config.warnDays || 30} days</div></div>
     ${orphans ? `<div class="stat warn"><div class="l">Unmatched</div><div class="v c-warn">${orphans}</div><div class="s">roster rows at stores not in FindMi</div></div>` : ""}`;
 }
-function renderCrumbs() {
-  const parts = [`<b onclick="navigate({})">${esc(tree.vp.name)}</b>`];
-  const dn = open.do && findNode(open.do), dm = open.dm && findNode(open.dm), st = open.store && findNode(open.store);
-  if (dn) parts.push("›", `<b onclick="navigate({do:'${dn.id}'})">${esc(dn.name)}</b>`);
-  if (dm) parts.push("›", `<b onclick="navigate({do:'${open.do}',dm:'${dm.id}'})">${esc(dm.name)}</b>`);
-  if (st) parts.push("›", `<b>${esc(st.name)}</b>`);
-  $("crumbs").innerHTML = parts.join(" ");
-}
 function findNode(id) {
+  if (id === "orphans") return orphanNode();
   let hit = null;
   const walk = n => { if (hit) return; if (n.id === id) { hit = n; return; }
     (n.children || []).forEach(walk); (n.stores || []).forEach(walk); (n.directStores || []).forEach(walk); };
   walk(tree.vp); walk(tree.unassigned);
   return hit;
 }
-window.navigate = function (o) { open = { do: o.do || null, dm: o.dm || null, store: o.store || null }; render(); };
+function orphanNode() {
+  return { kind: "orphans", id: "orphans", name: "Not in a FindMi BK store", address: "Roster rows whose store number has no BK match in FindMi (other brands, office, or a store missing from FindMi)" };
+}
+function orphanEmployees() { return Object.values(employees).filter(e => e.status !== "T" && !storeIndex[digits(e.storeNum)]); }
+// Ancestor chain for a node id: [vp, do?, dm?, store?]
+function pathTo(id) {
+  if (id === "orphans") return [tree.vp, orphanNode()];
+  let found = null;
+  const walk = (n, trail) => { if (found) return; const t = trail.concat([n]); if (n.id === id) { found = t; return; }
+    (n.children || []).forEach(c => walk(c, t)); (n.stores || []).forEach(c => walk(c, t)); (n.directStores || []).forEach(c => walk(c, t)); };
+  walk(tree.vp, []); if (!found) walk(tree.unassigned, [tree.vp]);
+  return found || [tree.vp];
+}
+function childrenOf(node) {
+  if (node.kind === "vp") { const out = node.children.slice(); const un = tree.unassigned; if (un.children.length || un.stores.length) out.push(un); if (orphanEmployees().length) out.push(orphanNode()); return out; }
+  if (node.kind === "do") return node.children.concat(node.directStores);
+  if (node.kind === "un") return node.children.concat(node.stores);
+  if (node.kind === "dm") return node.stores;
+  return [];
+}
+let focusId = null;
+function focusNode() { return (focusId && findNode(focusId)) || tree.vp; }
+window.setFocus = function (id) { focusId = id; selectedId = null; render(); window.scrollTo({ top: 0, behavior: "smooth" }); };
+window.navigate = function (o) { setFocus(o.store || o.dm || o.do || tree.vp.id); };
 
+function renderCrumbs() {
+  const path = pathTo(focusNode().id);
+  $("crumbs").innerHTML = path.map((n, i) => (i ? " › " : "") + (i === path.length - 1 ? `<b style="cursor:default;text-decoration:none">${esc(n.name)}</b>` : `<b onclick="setFocus('${n.id}')">${esc(n.name)}</b>`)).join("");
+}
 function personChip(node) {
   const rec = personRecord(node), ev = evalEmp(rec);
   const t = ev.required ? (ev.compliant ? (ev.counts.expiring ? "warn" : "ok") : "bad") : "na";
   const col = { ok: "#16a34a", warn: "#f59e0b", bad: "#e8091b", na: "#cbd5e1" }[t];
-  return `<span class="person-chip" onclick="event.stopPropagation(); selectPerson('${esc(rec.id)}', ${JSON.stringify(node.id)})"><span class="dot" style="background:${col}"></span>${esc(posLabel(node.pos))} certs: ${ev.required ? ev.counts.ok + "/" + ev.required : "none required"}</span>`;
+  return `<span class="person-chip" onclick="event.stopPropagation(); selectPerson('${esc(rec.id)}', ${JSON.stringify(node.id)})"><span class="dot" style="background:${col}"></span>${esc(posLabel(node.pos))}'s own certs: ${ev.required ? ev.counts.ok + "/" + ev.required : "none required"}</span>`;
 }
-function nodeRow(node, kindCls, extraHtml) {
-  const a = aggregate(subtreeEmployees(node));
-  const sub = node.kind === "store" ? [node.address].filter(Boolean).join(" · ")
-            : node.kind === "un" ? "Stores or DMs with no Director in FindMi"
-            : [node.email, fmtPhone(node.phone)].filter(Boolean).join(" · ");
-  return `<div class="row"><span class="kind ${kindCls}">${node.kind === "un" ? "?" : node.kind}</span><div class="grow"><div class="ttl">${esc(node.name)}</div><div class="sub">${esc(sub)}</div></div>${extraHtml || ""}${meterHtml(a)}<span class="chev">›</span></div>`;
+function nodeSub(node) {
+  if (node.kind === "store") return [node.fullName !== node.name ? node.fullName : "", node.address].filter(Boolean).join(" · ");
+  if (node.kind === "un") return "Stores or DMs with no Director in FindMi";
+  if (node.kind === "orphans") return node.address;
+  return [node.email, fmtPhone(node.phone)].filter(Boolean).join(" · ");
 }
+function nodeEmployees(node) {
+  if (node.kind === "store") return storeEmployees(node);
+  if (node.kind === "orphans") return orphanEmployees();
+  return subtreeEmployees(node);
+}
+function kindLabel(k) { return { vp: "VP", do: "DO", dm: "DM", store: "Store", un: "?", orphans: "?" }[k] || k; }
+function countLabel(node) {
+  const kids = childrenOf(node);
+  if (node.kind === "store" || node.kind === "orphans") { const n = nodeEmployees(node).length; return n + (n === 1 ? " person" : " people"); }
+  if (node.kind === "dm") return kids.length + (kids.length === 1 ? " store" : " stores");
+  const dms = kids.filter(k => k.kind === "dm").length, st = kids.filter(k => k.kind === "store").length;
+  return [dms ? dms + " DM" + (dms === 1 ? "" : "s") : "", st ? st + " direct store" + (st === 1 ? "" : "s") : ""].filter(Boolean).join(" · ") || kids.length + " groups";
+}
+
 function renderTree() {
-  const vp = tree.vp;
-  let h = `<div class="node open"><div class="row" style="cursor:default"><span class="kind">VP</span><div class="grow"><div class="ttl">${esc(vp.name)}</div><div class="sub">${esc([vp.email, fmtPhone(vp.phone)].filter(Boolean).join(" · "))}</div></div>${personChip(vp)}${meterHtml(aggregate(subtreeEmployees(vp)))}</div><div class="kids">`;
-  vp.children.forEach(dn => {
-    const isOpen = open.do === dn.id;
-    h += `<div class="node ${isOpen ? "open" : ""}" data-id="${dn.id}">`;
-    h += `<div onclick="toggleNode('do','${dn.id}')">${nodeRow(dn, "do", personChip(dn))}</div>`;
-    if (isOpen) {
-      h += `<div class="kids">`;
-      dn.children.forEach(dm => h += dmBlock(dm));
-      if (dn.directStores.length) { h += `<div class="group-h">Direct reports (no DM)</div>`; dn.directStores.forEach(s => h += storeBlock(s)); }
-      if (!dn.children.length && !dn.directStores.length) h += `<div class="empty">No BK stores under this Director.</div>`;
-      h += `</div>`;
-    }
-    h += `</div>`;
-  });
-  const un = tree.unassigned;
-  if (un.children.length || un.stores.length) {
-    const isOpen = open.do === un.id;
-    h += `<div class="node ${isOpen ? "open" : ""}"><div onclick="toggleNode('do','${un.id}')">${nodeRow(un, "un")}</div>`;
-    if (isOpen) { h += `<div class="kids">`; un.children.forEach(dm => h += dmBlock(dm)); un.stores.forEach(s => h += storeBlock(s)); h += `</div>`; }
+  const f = focusNode();
+  const path = pathTo(f.id);
+  let h = `<div class="chart">`;
+  // ancestors stacked above, each a small pill
+  if (path.length > 1) {
+    h += `<div class="ancestors">`;
+    path.slice(0, -1).forEach(n => { h += `<div class="anc" onclick="setFocus('${n.id}')"><span class="kind ${n.kind}">${kindLabel(n.kind)}</span>${esc(n.name)}</div><div class="anc-link"></div>`; });
     h += `</div>`;
   }
-  h += `</div></div>`;
-  // Roster rows whose store isn't a BK store in FindMi.
-  const orphans = Object.values(employees).filter(e => e.status !== "T" && !storeIndex[digits(e.storeNum)]).filter(matchesView);
-  if (orphans.length) {
-    const isOpen = open.store === "orphans";
-    h += `<div class="node ${isOpen ? "open" : ""}"><div class="row" onclick="toggleNode('store','orphans')"><span class="kind un">?</span><div class="grow"><div class="ttl">Not in a FindMi BK store</div><div class="sub">Roster rows whose store number has no match (other brands, office, or a store missing from FindMi)</div></div>${meterHtml(aggregate(orphans))}<span class="chev">›</span></div>`;
-    if (isOpen) h += `<div class="kids">${empList(orphans, true)}</div>`;
-    h += `</div>`;
+  // focus card
+  const agg = aggregate(nodeEmployees(f));
+  h += `<div class="focus"><div class="fh"><span class="kind ${f.kind}">${kindLabel(f.kind)}</span><div class="grow"><div class="ttl">${esc(f.name)}</div><div class="sub">${esc(nodeSub(f))}</div></div></div>
+        <div class="fm">${f.pos ? personChip(f) : `<span class="sub">${esc(countLabel(f))}</span>`}${meterHtml(agg)}</div>`;
+  if (f.kind === "store" && f.managers && f.managers.length) h += `<div class="sub" style="margin-top:6px;">FindMi: ${f.managers.map(m => esc((m.title || "Mgr") + " " + personName(m.name))).join(" · ")}</div>`;
+  h += `</div>`;
+
+  // roots: children fan out beneath
+  if (f.kind === "store" || f.kind === "orphans") {
+    const all = nodeEmployees(f);
+    const list = all.filter(matchesView);
+    const onRoster = all.some(e => !e._ghost);
+    if (!onRoster) h += `<div class="notice">Only FindMi's GM/AGM are known here — the HR roster hasn't been imported yet. ${unlocked ? `<button class="btn xs primary" onclick="openImport()" style="margin-left:6px;">⬆ Import roster</button>` : "Unlock editing, then use ⬆ Import roster."}</div>`;
+    h += `<div class="stem"></div><div class="roots-wrap"><div class="roots">`;
+    if (!list.length) h += `<div class="empty">${view === "all" ? "Nobody on the roster for this store." : "Nobody matches this filter here."}</div>`;
+    let lastPos = null;
+    list.forEach(e => {
+      if (e.pos !== lastPos) { h += `<div class="grp">${esc(posLabel(e.pos))}${e.pos ? "s" : ""}</div>`; lastPos = e.pos; }
+      h += empLeaf(e, f.kind === "orphans");
+    });
+    h += `</div></div>`;
+  } else {
+    const kids = childrenOf(f);
+    h += `<div class="stem"></div><div class="roots-wrap"><div class="roots">`;
+    if (!kids.length) h += `<div class="empty">Nothing under ${esc(f.name)}.</div>`;
+    let lastKind = null;
+    kids.forEach(k => {
+      if (f.kind === "do" && k.kind !== lastKind) { h += `<div class="grp">${k.kind === "dm" ? "District Managers" : "Direct-report stores (no DM)"}</div>`; lastKind = k.kind; }
+      h += nodeLeaf(k);
+    });
+    h += `</div></div>`;
   }
+  h += `</div>`;
   $("tree").innerHTML = h;
 }
-function dmBlock(dm) {
-  const isOpen = open.dm === dm.id;
-  let h = `<div class="node ${isOpen ? "open" : ""}"><div onclick="toggleNode('dm','${dm.id}')">${nodeRow(dm, "dm", personChip(dm))}</div>`;
-  if (isOpen) { h += `<div class="kids">`; dm.stores.forEach(s => h += storeBlock(s)); if (!dm.stores.length) h += `<div class="empty">No BK stores.</div>`; h += `</div>`; }
-  return h + `</div>`;
+function nodeLeaf(n) {
+  const a = aggregate(nodeEmployees(n));
+  const gm = n.kind === "store" ? (n.managers || []).find(m => /^gm$/i.test(m.title || "")) : null;
+  return `<div class="leaf" onclick="setFocus('${n.id}')">
+    <div class="lh"><span class="kind ${n.kind}">${kindLabel(n.kind)}</span><div class="grow"><div class="ttl">${esc(n.name)}</div></div></div>
+    <div class="sub">${esc(gm ? "GM " + personName(gm.name) : n.kind === "store" ? n.address : nodeSub(n))}</div>
+    ${meterHtml(a)}
+    <div class="foot"><span>${esc(countLabel(n))}</span><span>${a.tracked ? a.compliant + "/" + a.tracked + " certified" : ""}${a.missing + a.expired ? ` · <span class="c-bad">${a.missing + a.expired} gaps</span>` : ""}${a.expiring ? ` · <span class="c-warn">${a.expiring} expiring</span>` : ""}</span></div>
+  </div>`;
 }
-function storeBlock(s) {
-  const isOpen = open.store === s.id;
-  const gm = (s.managers || []).find(m => /^gm$/i.test(m.title || ""));
-  let h = `<div class="node ${isOpen ? "open" : ""}"><div onclick="toggleNode('store','${s.id}')">${nodeRow(s, "store", gm ? `<span class="pill fm" title="GM per FindMi">GM: ${esc(personName(gm.name))}</span>` : "")}</div>`;
-  if (isOpen) h += `<div class="kids">${empList(storeEmployees(s).filter(matchesView))}</div>`;
-  return h + `</div>`;
+function empLeaf(e, showStore) {
+  const ev = evalEmp(e);
+  const pills = ev.items.map(i => `<span class="pill ${i.status === "ok" ? "ok" : i.status === "expiring" ? "warn" : "bad"}" title="${esc(i.label)}: ${i.status}${i.cert && i.cert.expiresAt ? " · exp " + fmtDate(i.cert.expiresAt) : ""}">${esc(i.label)}${i.status === "ok" ? " ✓" : i.status === "expiring" ? " ⏳" : i.status === "expired" ? " ✗ exp" : " ✗"}</span>`).join("");
+  return `<div class="leaf emp ${selectedId === e.id ? "sel" : ""} ${e._ghost ? "ghost" : ""}" onclick="selectEmp('${esc(e.id)}')">
+    <div class="nm">${esc(e.name)}</div>
+    <div class="pos">${esc(e.eeCode || "")}${e.eeCode ? " · " : ""}${esc(posLabel(e.pos))}${showStore && e.storeDesc ? " · " + esc(e.storeDesc) : ""}</div>
+    <div class="certs">${e.train ? '<span class="pill train">In training</span>' : ""}${e._fm ? `<span class="pill fm">FindMi ${esc(e._fm)}</span>` : ""}${e._ghost ? `<span class="pill info" title="FindMi lists this manager but there is no roster row">Not on roster</span>` : ""}${pills || '<span class="pill na">no certs required</span>'}</div>
+  </div>`;
 }
-function empList(list, showStore) {
-  if (!list.length) return `<div class="empty">${view === "all" ? "No one on the roster for this store yet — import the HR sheet or add a person." : "Nobody matches this filter here."}</div>`;
-  let h = `<div class="emp-list">`;
-  let lastPos = null;
-  list.forEach(e => {
-    if (e.pos !== lastPos) { h += `<div class="group-h">${esc(posLabel(e.pos))}${e.pos ? "s" : ""}</div>`; lastPos = e.pos; }
-    const ev = evalEmp(e);
-    const pills = ev.items.map(i => `<span class="pill ${i.status === "ok" ? "ok" : i.status === "expiring" ? "warn" : "bad"}" title="${esc(i.label)}: ${i.status}${i.cert && i.cert.expiresAt ? " · exp " + fmtDate(i.cert.expiresAt) : ""}">${esc(i.label)}${i.status === "ok" ? " ✓" : i.status === "expiring" ? " ⏳" : i.status === "expired" ? " ✗ exp" : " ✗"}</span>`).join("");
-    h += `<div class="emp ${selectedId === e.id ? "sel" : ""}" onclick="selectEmp('${esc(e.id)}')">
-      <div><div class="nm">${esc(e.name)} ${e.train ? '<span class="pill train">In training</span>' : ""}${e._fm ? `<span class="pill fm">FindMi ${esc(e._fm)}</span>` : ""}${e._ghost ? `<span class="pill info" title="FindMi lists this manager but there is no roster row — import the HR sheet or add them">Not on roster</span>` : ""}</div>
-      <div class="pos">${esc(e.eeCode || "")}${e.eeCode ? " · " : ""}${esc(posLabel(e.pos))}${showStore && e.storeDesc ? " · " + esc(e.storeDesc) : ""}</div></div>
-      <div class="certs">${pills || '<span class="pill na">no certs required</span>'}</div></div>`;
-  });
-  return h + `</div>`;
-}
-window.toggleNode = function (level, id) {
-  if (level === "do") { open = { do: open.do === id ? null : id, dm: null, store: null }; }
-  else if (level === "dm") { open.dm = open.dm === id ? null : id; open.store = null; }
-  else { open.store = open.store === id ? null : id; }
-  render();
-};
 window.setView = function (v) { view = v; document.querySelectorAll("#viewSeg button").forEach(b => b.classList.toggle("on", b.dataset.v === v)); render(); };
 
 /* ============================================================
@@ -749,7 +794,7 @@ function currentEmp() {
   if (employees[selectedId]) return employees[selectedId];
   if (selectedVirtualNode) { const n = findNode(selectedVirtualNode); if (n) return personRecord(n); }
   // ghost manager card
-  for (const num in storeIndex) { const g = storeEmployees(storeIndex[num]).find(e => e.id === selectedId); if (g) return g; }
+  const fn = focusNode(); if (fn.kind === 'store') { const g = storeEmployees(fn).find(e => e.id === selectedId); if (g) return g; }
   return null;
 }
 function renderDetail() {
@@ -853,7 +898,7 @@ window.openEmpEditor = function (id) {
   $("eTrain").checked = !!(e && e.train);
   const stores = Object.values(storeIndex).sort((a, b) => a.name.localeCompare(b.name));
   $("eStore").innerHTML = `<option value="">— none (above store) —</option>` + stores.map(s => `<option value="${s.num}">${esc(s.name)}</option>`).join("");
-  $("eStore").value = e ? digits(e.storeNum) : (open.store && findNode(open.store) ? findNode(open.store).num : "");
+  $("eStore").value = e ? digits(e.storeNum) : (focusNode().kind === "store" ? focusNode().num : "");
   $("ePhone").value = e ? (e.phone || "") : ""; $("eEmail").value = e ? (e.email || "") : ""; $("ePers").value = e ? (e.persEmail || "") : "";
   $("eStatus").value = e ? (e.status || "A") : "A";
   $("empDel").style.display = e ? "" : "none";
@@ -1056,21 +1101,14 @@ function renderSearch() {
   if (!h) h = `<div class="empty">No matches for "${esc($("q").value)}".</div>`;
   box.innerHTML = h; box.style.display = "block"; $("tree").style.display = "none";
 }
-window.jumpTo = function (path) { clearSearch(); open = { do: path.do || null, dm: path.dm || null, store: path.store || null }; render(); scrollToOpen(); };
+window.jumpTo = function (path) { clearSearch(); setFocus(path.store || path.dm || path.do || tree.vp.id); };
 window.jumpToEmp = function (id) {
   const e = employees[id]; clearSearch();
   const st = e && storeIndex[digits(e.storeNum)];
-  if (st) {
-    let path = { store: st.id };
-    const walk = (n, p) => { if (n.id === st.id) { path = Object.assign({}, p, { store: st.id }); return; }
-      const p2 = Object.assign({}, p); if (n.kind === "do" || n.kind === "un") p2.do = n.id; if (n.kind === "dm") p2.dm = n.id;
-      (n.children || []).forEach(c => walk(c, p2)); (n.stores || []).forEach(c => walk(c, p2)); (n.directStores || []).forEach(c => walk(c, p2)); };
-    walk(tree.vp, {}); walk(tree.unassigned, {});
-    open = { do: path.do || null, dm: path.dm || null, store: st.id };
-  } else open = { do: null, dm: null, store: "orphans" };
-  selectedId = id; selectedVirtualNode = null; render(); scrollToOpen();
+  focusId = st ? st.id : "orphans";
+  selectedId = id; selectedVirtualNode = null; render();
+  setTimeout(() => { const el = document.querySelector(".leaf.sel"); if (el) el.scrollIntoView({ block: "center", behavior: "smooth" }); }, 60);
 };
-function scrollToOpen() { setTimeout(() => { const el = document.querySelector(".emp.sel") || document.querySelector(".node.open .node.open .node.open") ; if (el) el.scrollIntoView({ block: "center", behavior: "smooth" }); }, 50); }
 
 /* ============================================================
    SETTINGS
