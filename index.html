@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="format-detection" content="telephone=no, address=no, email=no">
+<meta name="theme-color" content="#1b1660">
+<title>DPM TrainMi — Certification Tracker</title>
+<link rel="icon" type="image/png" href="favicon-96x96.png" sizes="96x96" />
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-title" content="TrainMi" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Mulish:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://static.filestackapi.com/filestack-js/3.x.x/filestack.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+  :root {
+    --navy: #251d7f; --navy-900: #14104a; --navy-800: #1b1660; --red: #e8091b;
+    --bg: #eaecf2; --surface: #fff; --surface-2: #f7f8fb; --tint: #eef0fb; --tint-2: #e0e7ff;
+    --line: #dee1e8; --line-2: #cbd5e1; --ink: #14161f; --ink-2: #334155; --muted: #64748b; --faint: #8a93a6;
+    --ok: #15803d; --ok-bg: #dcfce7; --warn: #b45309; --warn-bg: #fef3c7; --bad: #b91c1c; --bad-bg: #fee2e2;
+    --info: #1d4ed8; --info-bg: #eff6ff;
+    --font-display: 'Cinzel', 'Times New Roman', serif; --font-sans: 'Mulish', system-ui, -apple-system, sans-serif;
+    --shadow-sm: 0 1px 3px rgba(20,16,74,.08), 0 1px 2px rgba(20,16,74,.06);
+    --shadow-md: 0 4px 12px rgba(20,16,74,.10), 0 2px 4px rgba(20,16,74,.06);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body { font-family: var(--font-sans); color: var(--ink); background: var(--bg); line-height: 1.4; font-size: 14px; display: flex; flex-direction: column; min-height: 100dvh; }
+  button { font-family: inherit; cursor: pointer; }
+  input, select, textarea { font-family: inherit; font-size: 14px; color: var(--ink); background: var(--surface); border: 1px solid var(--line-2); border-radius: 6px; padding: 7px 10px; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--navy); box-shadow: 0 0 0 3px rgba(37,29,127,.12); }
+
+  /* ---- header ---- */
+  header { background: var(--navy); border-bottom: 3px solid var(--red); padding: 8px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; box-shadow: var(--shadow-md); position: sticky; top: 0; z-index: 50; }
+  .brand { display: flex; flex-direction: column; min-width: 0; }
+  .brand h1 { font-family: var(--font-display); font-size: 1rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #fff; line-height: 1.1; }
+  .brand span { font-size: .72rem; color: #c7c3f1; font-style: italic; }
+  .search-wrap { position: relative; flex: 1 1 320px; max-width: 560px; }
+  .search-wrap .ico { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); pointer-events: none; opacity: .7; }
+  .search-wrap input { width: 100%; padding: 9px 34px 9px 34px; border-radius: 999px; border: 1px solid var(--line-2); font-size: 14px; }
+  .search-wrap .clr { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 22px; height: 22px; border-radius: 50%; border: none; background: var(--line); color: var(--muted); display: none; align-items: center; justify-content: center; font-size: 14px; }
+  .hdr-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .hbtn { background: rgba(255,255,255,.1); color: #fff; border: 1px solid rgba(255,255,255,.25); border-radius: 999px; padding: 6px 12px; font-size: .78rem; font-weight: 600; white-space: nowrap; }
+  .hbtn:hover { background: rgba(255,255,255,.2); }
+  .hbtn.on { background: var(--red); border-color: var(--red); }
+  .hbtn.unlocked { background: rgba(22,163,74,.45); border-color: rgba(134,239,172,.8); }
+  .conn { font-size: .7rem; color: #c7c3f1; display: flex; align-items: center; gap: 5px; }
+  .conn i { width: 7px; height: 7px; border-radius: 50%; background: #f87171; display: inline-block; }
+  .conn.ok i { background: #4ade80; }
+
+  main { flex: 1; width: 100%; max-width: 1500px; margin: 0 auto; padding: 14px 16px 60px; }
+
+  /* ---- summary strip ---- */
+  .strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .stat { background: var(--surface); border: 1px solid var(--line); border-top: 3px solid var(--navy); border-radius: 10px; padding: 10px 12px; box-shadow: var(--shadow-sm); }
+  .stat .l { font-size: .66rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .stat .v { font-size: 1.5rem; font-weight: 800; line-height: 1.1; margin-top: 2px; }
+  .stat .s { font-size: .72rem; color: var(--muted); }
+  .stat.ok { border-top-color: var(--ok); } .stat.warn { border-top-color: #f59e0b; } .stat.bad { border-top-color: var(--red); }
+
+  /* ---- layout ---- */
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  @media (min-width: 1100px) { .layout.has-detail { grid-template-columns: minmax(0, 1fr) 440px; } }
+
+  /* ---- tree ---- */
+  .node { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow-sm); margin-bottom: 8px; overflow: hidden; }
+  .node > .row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; user-select: none; }
+  .node > .row:hover { background: var(--surface-2); }
+  .node.open > .row { background: var(--tint); border-bottom: 1px solid var(--line); }
+  .node .kids { padding: 8px 8px 4px 22px; background: var(--surface-2); }
+  .node .kids .node { margin-bottom: 6px; }
+  .kind { font-size: .62rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; background: var(--navy); color: #fff; flex-shrink: 0; }
+  .kind.do { background: #4339c4; } .kind.dm { background: #2b64c6; } .kind.store { background: #0f766e; } .kind.un { background: var(--faint); }
+  .ttl { font-weight: 700; font-size: .95rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sub { font-size: .74rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chev { color: var(--muted); font-size: 1.1rem; transition: transform .15s; margin-left: 4px; }
+  .node.open > .row .chev { transform: rotate(90deg); }
+  .grow { flex: 1; min-width: 0; }
+
+  /* compliance meter */
+  .meter { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .meter .pct { font-weight: 800; font-size: .95rem; min-width: 46px; text-align: right; }
+  .meter .bar { width: 110px; height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; }
+  .meter .bar i { display: block; height: 100%; border-radius: 999px; }
+  .meter .cnt { font-size: .7rem; color: var(--muted); white-space: nowrap; }
+  .c-ok { color: var(--ok); } .c-warn { color: var(--warn); } .c-bad { color: var(--bad); } .c-na { color: var(--faint); }
+  .b-ok { background: #16a34a; } .b-warn { background: #f59e0b; } .b-bad { background: var(--red); } .b-na { background: var(--line-2); }
+  @media (max-width: 640px) { .meter .bar { width: 60px; } .meter .cnt { display: none; } }
+
+  .person-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line-2); background: #fff; font-size: .74rem; font-weight: 600; cursor: pointer; }
+  .person-chip:hover { border-color: var(--navy); background: var(--tint); }
+  .person-chip .dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* ---- employee table ---- */
+  .emp-list { padding: 6px 0 2px; }
+  .emp { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; align-items: center; padding: 8px 10px; border-radius: 8px; cursor: pointer; border: 1px solid transparent; }
+  .emp:hover { background: #fff; border-color: var(--line-2); }
+  .emp.sel { background: #fff; border-color: var(--navy); box-shadow: 0 0 0 2px rgba(37,29,127,.15); }
+  .emp .nm { font-weight: 700; font-size: .9rem; }
+  .emp .pos { font-size: .72rem; color: var(--muted); }
+  .emp .certs { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+  .pill { font-size: .64rem; font-weight: 700; padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
+  .pill.ok { background: var(--ok-bg); color: var(--ok); } .pill.warn { background: var(--warn-bg); color: var(--warn); }
+  .pill.bad { background: var(--bad-bg); color: var(--bad); } .pill.na { background: var(--line); color: var(--muted); }
+  .pill.info { background: var(--info-bg); color: var(--info); }
+  .pill.train { background: #ede9fe; color: #5b21b6; }
+  .pill.fm { background: var(--tint-2); color: var(--navy); }
+  .group-h { font-size: .64rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); margin: 10px 0 4px 10px; }
+  .empty { padding: 14px; color: var(--muted); font-size: .85rem; text-align: center; }
+
+  /* ---- detail panel ---- */
+  .detail { background: var(--surface); border: 1px solid var(--line); border-top: 3px solid var(--red); border-radius: 12px; box-shadow: var(--shadow-md); padding: 16px; position: sticky; top: 70px; max-height: calc(100dvh - 90px); overflow-y: auto; }
+  .detail h2 { font-size: 1.15rem; font-weight: 800; }
+  .detail .meta { font-size: .78rem; color: var(--muted); margin-top: 2px; }
+  .kv { display: grid; grid-template-columns: 90px 1fr; gap: 4px 10px; font-size: .82rem; margin-top: 10px; }
+  .kv dt { color: var(--muted); font-weight: 600; } .kv dd { color: var(--ink); overflow-wrap: anywhere; }
+  .kv dd.cp { cursor: pointer; border-radius: 4px; padding: 0 4px; margin-left: -4px; } .kv dd.cp:hover { background: var(--tint); }
+  .cert { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-top: 8px; display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; align-items: start; }
+  .cert.ok { border-color: #86efac; background: #f0fdf4; } .cert.warn { border-color: #fcd34d; background: #fffbeb; } .cert.bad { border-color: #fca5a5; background: #fef2f2; }
+  .cert .cn { font-weight: 700; font-size: .9rem; } .cert .cs { font-size: .74rem; color: var(--muted); margin-top: 2px; }
+  .cert .acts { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+  .cert .dates { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-size: .76rem; }
+  .cert .dates input { padding: 4px 6px; font-size: .78rem; }
+  .sect { font-size: .66rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-top: 16px; }
+
+  /* ---- buttons ---- */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 5px; font-size: .78rem; font-weight: 700; padding: 6px 12px; border-radius: 7px; border: 1px solid var(--line-2); background: #fff; color: var(--navy); white-space: nowrap; }
+  .btn:hover { background: var(--tint); border-color: #9d97e6; }
+  .btn.primary { background: var(--navy); color: #fff; border-color: var(--navy); } .btn.primary:hover { background: var(--navy-800); }
+  .btn.danger { color: var(--bad); border-color: #fca5a5; } .btn.danger:hover { background: var(--bad-bg); }
+  .btn.ok { background: var(--ok); color: #fff; border-color: var(--ok); }
+  .btn.xs { font-size: .7rem; padding: 3px 8px; }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .edit-only { display: none !important; } body.unlocked .edit-only { display: inline-flex !important; }
+  body.unlocked .edit-only.block { display: block !important; }
+
+  /* ---- toolbar ---- */
+  .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .toolbar .sp { flex: 1; }
+  .crumbs { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: .8rem; color: var(--muted); }
+  .crumbs b { color: var(--navy); cursor: pointer; } .crumbs b:hover { text-decoration: underline; }
+  .seg { display: inline-flex; border: 1px solid var(--line-2); border-radius: 999px; overflow: hidden; background: #fff; }
+  .seg button { border: none; background: none; padding: 5px 11px; font-size: .74rem; font-weight: 700; color: var(--muted); }
+  .seg button.on { background: var(--navy); color: #fff; }
+
+  /* ---- search results ---- */
+  .results { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow-md); padding: 10px; margin-bottom: 14px; }
+  .results .rh { font-size: .64rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); margin: 8px 8px 4px; }
+  .res { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; cursor: pointer; }
+  .res:hover { background: var(--tint); }
+  .res .t { font-weight: 700; } .res .d { font-size: .74rem; color: var(--muted); }
+
+  /* ---- modal ---- */
+  .backdrop { position: fixed; inset: 0; background: rgba(15,23,42,.45); display: none; align-items: center; justify-content: center; z-index: 500; padding: 12px; }
+  .backdrop.active { display: flex; }
+  .modal { background: var(--surface); border-radius: 12px; box-shadow: 0 20px 50px rgba(0,0,0,.3); width: 100%; max-width: 520px; max-height: calc(100dvh - 24px); display: flex; flex-direction: column; overflow: hidden; }
+  .modal.wide { max-width: 1000px; }
+  .modal .mh { padding: 10px 14px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; background: var(--surface-2); }
+  .modal .mh h3 { font-family: var(--font-display); font-size: .82rem; letter-spacing: .04em; text-transform: uppercase; color: var(--navy); }
+  .modal .mb { padding: 14px; overflow-y: auto; }
+  .modal .mf { padding: 10px 14px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; gap: 8px; background: var(--surface-2); }
+  .x { background: none; border: none; font-size: 1.2rem; color: var(--muted); }
+  .fg { margin-bottom: 10px; } .fg label { display: block; font-size: .72rem; font-weight: 700; color: var(--muted); margin-bottom: 3px; }
+  .fg input, .fg select { width: 100%; }
+  .err { color: var(--bad); font-size: .76rem; margin-top: 6px; min-height: 1em; }
+
+  /* gate */
+  .gate { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; background: linear-gradient(160deg, var(--navy), #0f172a); padding: 20px; }
+  .gate.hidden { display: none; }
+  .gate .box { background: #fff; border-radius: 12px; padding: 28px 26px; width: 100%; max-width: 340px; text-align: center; box-shadow: 0 18px 50px rgba(0,0,0,.35); }
+  .gate .logo { font-family: var(--font-display); font-weight: 700; color: var(--navy); letter-spacing: .06em; font-size: 1.1rem; }
+  .gate input { width: 100%; text-align: center; letter-spacing: .28em; font-size: 1rem; margin: 14px 0 10px; }
+  .gate .btn { width: 100%; }
+
+  /* import table */
+  .imp-table { width: 100%; border-collapse: collapse; font-size: .76rem; }
+  .imp-table th, .imp-table td { padding: 5px 7px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+  .imp-table th { background: var(--surface-2); position: sticky; top: 0; font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  tr.new { background: #f0fdf4; } tr.upd { background: #fffbeb; } tr.rem { background: #fef2f2; } tr.same { color: var(--faint); }
+  .was { color: var(--bad); text-decoration: line-through; font-size: .68rem; }
+  .drop { border: 2px dashed var(--line-2); border-radius: 10px; padding: 26px 14px; text-align: center; color: var(--muted); background: var(--surface-2); cursor: pointer; }
+  .drop:hover { border-color: var(--navy); background: var(--tint); }
+
+  /* settings */
+  .req-grid { display: grid; grid-template-columns: 180px repeat(var(--n, 7), minmax(70px, 1fr)); gap: 2px; font-size: .74rem; align-items: center; }
+  .req-grid .h { font-weight: 800; text-align: center; font-size: .66rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); padding: 4px 2px; }
+  .req-grid .c { text-align: center; padding: 4px 0; background: var(--surface-2); border-radius: 4px; }
+  .req-grid .c input { width: 16px; height: 16px; accent-color: var(--navy); }
+  .req-grid .n { font-weight: 600; padding: 4px 6px; }
+  .cert-row { display: grid; grid-template-columns: 1fr 110px 36px; gap: 6px; margin-bottom: 6px; align-items: center; }
+
+  #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(12px); background: #111827; color: #fff; padding: 9px 16px; border-radius: 999px; font-size: .82rem; font-weight: 600; z-index: 4000; opacity: 0; pointer-events: none; transition: all .18s; box-shadow: 0 6px 20px rgba(0,0,0,.28); }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  footer { font-size: .7rem; color: var(--muted); text-align: center; padding: 12px; }
+  @media (max-width: 1099px) {
+    .detail { position: fixed; inset: auto 0 0 0; max-height: 85dvh; border-radius: 14px 14px 0 0; z-index: 400; box-shadow: 0 -10px 40px rgba(0,0,0,.3); }
+  }
+</style>
+</head>
+<body>
+
+<div id="gate" class="gate">
+  <div class="box">
+    <div class="logo">DPM TrainMi</div>
+    <p style="font-size:.8rem;color:var(--muted);margin-top:6px;">Certification tracker. Contact IT Support for access.</p>
+    <input type="password" id="gateInput" inputmode="numeric" placeholder="Access code" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();submitGate();}">
+    <div class="err" id="gateErr"></div>
+    <button class="btn primary" onclick="submitGate()">View Tracker</button>
+  </div>
+</div>
+
+<header>
+  <div class="brand"><h1>DPM TrainMi</h1><span>Certification tracker</span></div>
+  <div class="search-wrap">
+    <span class="ico">🔍</span>
+    <input type="search" id="q" placeholder="Search people, EE codes, stores, DMs, positions…" autocomplete="off" oninput="onSearch(this.value)" data-1p-ignore data-lpignore="true">
+    <button class="clr" id="qClr" onclick="clearSearch()" aria-label="Clear">×</button>
+  </div>
+  <div class="hdr-actions">
+    <span class="conn" id="conn"><i></i><span>Connecting…</span></span>
+    <button class="hbtn" id="lockBtn" onclick="toggleLock()">🔒 Locked</button>
+    <button class="hbtn edit-only" onclick="openImport()">⬆ Import roster</button>
+    <button class="hbtn" onclick="exportReport()">⬇ Report</button>
+    <button class="hbtn edit-only" onclick="openSettings()">⚙ Settings</button>
+  </div>
+</header>
+
+<main>
+  <div class="strip" id="strip"></div>
+  <div class="toolbar">
+    <div class="crumbs" id="crumbs"></div>
+    <div class="sp"></div>
+    <div class="seg" id="viewSeg">
+      <button class="on" data-v="all" onclick="setView('all')">Everyone</button>
+      <button data-v="gaps" onclick="setView('gaps')">Gaps only</button>
+      <button data-v="expiring" onclick="setView('expiring')">Expiring</button>
+    </div>
+    <button class="btn edit-only" onclick="openEmpEditor(null)">+ Add person</button>
+  </div>
+  <div id="results" class="results" style="display:none;"></div>
+  <div class="layout" id="layout">
+    <div id="tree"></div>
+    <div id="detail" style="display:none;"></div>
+  </div>
+</main>
+<footer>DPM TrainMi · v1.0 · Hierarchy and GM/AGM alignments come live from DPM FindMi · Roster and certificates live in Firestore (dpm-trainmi)</footer>
+
+<!-- Password modal -->
+<div class="backdrop" id="pwModal">
+  <div class="modal">
+    <div class="mh"><h3>Unlock editing</h3><button class="x" onclick="closeModal('pwModal')">×</button></div>
+    <div class="mb">
+      <p style="font-size:.82rem;color:var(--muted);">Editing is locked. Enter the editing password to upload certificates, change positions, or import the roster.</p>
+      <input type="password" id="pwInput" placeholder="Password" style="width:100%;margin-top:10px;" onkeydown="if(event.key==='Enter')confirmUnlock()">
+      <div class="err" id="pwErr"></div>
+    </div>
+    <div class="mf"><button class="btn" onclick="closeModal('pwModal')">Cancel</button><button class="btn primary" onclick="confirmUnlock()">Unlock</button></div>
+  </div>
+</div>
+
+<!-- Employee editor -->
+<div class="backdrop" id="empModal">
+  <div class="modal">
+    <div class="mh"><h3 id="empModalTitle">Add person</h3><button class="x" onclick="closeModal('empModal')">×</button></div>
+    <div class="mb">
+      <input type="hidden" id="eId">
+      <div class="fg"><label>EE Code <span style="font-weight:400">(HR employee code — the import matches on this)</span></label><input id="eCode" placeholder="e.g. A8G3"></div>
+      <div class="fg"><label>Full name</label><input id="eName" placeholder="First Last"></div>
+      <div class="fg"><label>Position</label><select id="ePos"></select></div>
+      <div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="eTrain" style="width:auto;"> In training</label></div>
+      <div class="fg"><label>Store</label><select id="eStore"></select></div>
+      <div class="fg"><label>Phone</label><input id="ePhone"></div>
+      <div class="fg"><label>Work email</label><input id="eEmail"></div>
+      <div class="fg"><label>Personal email</label><input id="ePers"></div>
+      <div class="fg"><label>Status</label><select id="eStatus"><option value="A">Active</option><option value="T">Terminated</option></select></div>
+      <div class="err" id="empErr"></div>
+    </div>
+    <div class="mf">
+      <button class="btn danger" id="empDel" onclick="deleteEmployee()" style="margin-right:auto;">Delete</button>
+      <button class="btn" onclick="closeModal('empModal')">Cancel</button><button class="btn primary" onclick="saveEmployee()">Save</button></div>
+  </div>
+</div>
+
+<!-- Import modal -->
+<div class="backdrop" id="impModal">
+  <div class="modal wide">
+    <div class="mh"><h3>Import roster from Excel</h3><button class="x" onclick="closeModal('impModal')">×</button></div>
+    <div class="mb">
+      <p style="font-size:.78rem;color:var(--muted);line-height:1.5;margin-bottom:10px;">
+        Drop the HR Employee Directory export (.xlsx). It reads <b>EECode, EE Name, Nickname, Status, Department Desc, Store, Store Desc, Work Email, Pers. Email, Phone #</b>, matches on EECode, and previews every change. Certificates already uploaded are never touched. <b>Nothing is written until you press Apply.</b>
+      </p>
+      <div class="drop" id="dropZone"><div style="font-size:1.6rem;">📄</div><div style="font-weight:700;margin-top:4px;">Drop .xlsx here, or click to choose</div><div style="font-size:.72rem;" id="impFile">No file selected</div><input type="file" id="impInput" accept=".xlsx,.xls,.csv" style="display:none;"></div>
+      <div id="impSummary" style="margin:10px 0 6px;font-size:.82rem;font-weight:700;"></div>
+      <label id="impRemoveWrap" style="display:none;font-size:.76rem;align-items:center;gap:6px;margin-bottom:8px;cursor:pointer;"><input type="checkbox" id="impRemove" onchange="renderImportPreview()" style="width:auto;"> Mark people <b>not in this sheet</b> as terminated (treat the sheet as the current roster). They stay in the database with their certificates, hidden from store lists.</label>
+      <div style="max-height:50vh;overflow:auto;border:1px solid var(--line);border-radius:8px;" id="impPreview"></div>
+    </div>
+    <div class="mf"><button class="btn" onclick="closeModal('impModal')">Cancel</button><button class="btn ok" id="impApply" onclick="applyImport()" disabled>Apply to database</button></div>
+  </div>
+</div>
+
+<!-- Settings modal -->
+<div class="backdrop" id="setModal">
+  <div class="modal wide">
+    <div class="mh"><h3>Settings</h3><button class="x" onclick="closeModal('setModal')">×</button></div>
+    <div class="mb">
+      <div class="sect" style="margin-top:0;">Certificate catalog</div>
+      <p style="font-size:.76rem;color:var(--muted);margin:4px 0 8px;">Each certificate has a name and how long it stays valid (months; blank = never expires). Deleting one removes the requirement — already-uploaded files stay attached under "Other certificates".</p>
+      <div id="certRows"></div>
+      <button class="btn xs" onclick="addCertRow()">+ Add certificate</button>
+
+      <div class="sect">Required by position</div>
+      <p style="font-size:.76rem;color:var(--muted);margin:4px 0 8px;">Tick what each position must hold. "In training" people follow their position's row unless a <i>trainee</i> row is ticked differently.</p>
+      <div id="reqGrid"></div>
+
+      <div class="sect">Compliance thresholds</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:6px;font-size:.78rem;align-items:center;">
+        <label>Expiring soon = within <input id="sWarnDays" type="number" style="width:70px;padding:4px 6px;"> days</label>
+        <label>Green at ≥ <input id="sGreen" type="number" style="width:60px;padding:4px 6px;">%</label>
+        <label>Amber at ≥ <input id="sAmber" type="number" style="width:60px;padding:4px 6px;">%</label>
+      </div>
+
+      <div class="sect">Access</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px;">
+        <div class="fg"><label>View access code</label><input id="sView"></div>
+        <div class="fg"><label>Editing password</label><input id="sEdit"></div>
+      </div>
+      <div class="err" id="setErr"></div>
+    </div>
+    <div class="mf"><button class="btn" onclick="closeModal('setModal')">Cancel</button><button class="btn primary" onclick="saveSettings()">Save settings</button></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getFirestore, collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, writeBatch, deleteField }
+    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  const app = initializeApp({
+    apiKey: "AIzaSyCLu-z6rpGkmtvsvvsqL8AyVU2uyp0fkfo",
+    authDomain: "dpm-trainmi.firebaseapp.com",
+    projectId: "dpm-trainmi",
+    storageBucket: "dpm-trainmi.firebasestorage.app",
+    messagingSenderId: "319716827805",
+    appId: "1:319716827805:web:d1889b51a3c17d2e0dea74"
+  });
+  window.FS = { db: getFirestore(app), collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, writeBatch, deleteField };
+  window.dispatchEvent(new Event("firebase-ready"));
+</script>
+
+<script>
+/* ============================================================
+   CONFIG
+   ============================================================ */
+const FINDMI_URL = "https://alignment-api-khaki.vercel.app/api/dpm-alignment";
+const FILESTACK_KEY = "Afe1LdETdKFIBOgrA4TgLz";
+const VP_EMAIL = "sam@dossaniparadise.com";     // Sam is the VP over every Director
+const VP_NAME_FALLBACK = "Sam Merchant";
+
+// Fallbacks until Settings are saved to Firestore (config/app).
+const DEFAULT_CONFIG = {
+  viewCode: "76051",
+  editPassword: "Train@76051",
+  warnDays: 30, greenPct: 90, amberPct: 70,
+  certs: {
+    food_handler: { label: "Food Handler", months: 24 },
+    servsafe_mgr: { label: "ServSafe Manager", months: 60 }
+  },
+  requirements: {
+    VP: ["servsafe_mgr"], DO: ["servsafe_mgr"], DM: ["servsafe_mgr"],
+    GM: ["food_handler", "servsafe_mgr"], AGM: ["food_handler", "servsafe_mgr"],
+    SL: ["food_handler"], TM: ["food_handler"]
+  },
+  trainingRequirements: {}   // optional per-position overrides for trainees, e.g. { GM_T: [...] }
+};
+
+const POSITIONS = [
+  { key: "VP",  label: "VP of Operations",        rank: 0 },
+  { key: "DO",  label: "Director of Operations",  rank: 1 },
+  { key: "DM",  label: "District Manager",        rank: 2 },
+  { key: "GM",  label: "General Manager",         rank: 3 },
+  { key: "AGM", label: "Assistant General Manager", rank: 4 },
+  { key: "SL",  label: "Shift Lead",              rank: 5 },
+  { key: "TM",  label: "Team Member",             rank: 6 }
+];
+const POS = {}; POSITIONS.forEach(p => POS[p.key] = p);
+function posLabel(k) { return POS[k] ? POS[k].label : (k || "—"); }
+
+// HR "Department Desc" -> position key (+ in-training flag).
+function mapPosition(desc) {
+  const d = String(desc || "").toLowerCase();
+  const train = /train/.test(d);
+  if (/vice president|vp of/.test(d)) return { pos: "VP", train };
+  if (/director/.test(d)) return { pos: "DO", train };
+  if (/assistant area coach|assistant district/.test(d)) return { pos: "DM", train: true };
+  if (/area coach|district manager|above store/.test(d)) return { pos: "DM", train };
+  if (/assistant general manager|\bagm\b/.test(d)) return { pos: "AGM", train };
+  if (/general manager|\bgm\b|store manager/.test(d)) return { pos: "GM", train };
+  if (/shift/.test(d)) return { pos: "SL", train };
+  if (/team member|crew/.test(d)) return { pos: "TM", train };
+  return { pos: "TM", train };
+}
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+let employees = {};         // id -> record (Firestore)
+let findmi = null;          // raw alignment payload
+let tree = null;            // hierarchy built from FindMi
+let storeIndex = {};        // storeNum digits -> store node
+let unlocked = false;
+let view = "all";
+let open = { do: null, dm: null, store: null };   // expanded path (accordion)
+let selectedId = null;
+let searchQ = "";
+let fsClient = null;
+let _toastT = null;
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+const $ = id => document.getElementById(id);
+function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+function toast(m) { const t = $("toast"); t.textContent = m; t.classList.add("show"); clearTimeout(_toastT); _toastT = setTimeout(() => t.classList.remove("show"), 2200); }
+function digits(v) { return String(v || "").replace(/\D/g, "").replace(/^0+/, ""); }
+function fmtPhone(raw) {
+  let d = String(raw || "").replace(/\D/g, "");
+  if (d.length === 11 && d[0] === "1") d = d.slice(1);
+  return d.length === 10 ? d.slice(0, 3) + "-" + d.slice(3, 6) + "-" + d.slice(6) : String(raw || "").trim();
+}
+function titleCase(w) { return w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w; }
+function personName(raw) {   // "HORRELL, JACOB E" -> "Jacob E Horrell"
+  let s = String(raw || "").trim();
+  const fix = t => t.split("-").map(titleCase).join("-");
+  if (s.includes(",")) {
+    const [last, ...rest] = s.split(",");
+    return (rest.join(",").trim().split(/\s+/).map(fix).join(" ") + " " + last.trim().split(/\s+/).map(fix).join(" ")).trim();
+  }
+  return s.split(/\s+/).map(fix).join(" ");
+}
+function normName(n) { return String(n || "").toLowerCase().replace(/[^a-z ]+/g, " ").replace(/\s+/g, " ").trim(); }
+function samePerson(a, b) {
+  const A = normName(a).split(" ").filter(Boolean), B = normName(b).split(" ").filter(Boolean);
+  if (!A.length || !B.length) return false;
+  if (A.join(" ") === B.join(" ")) return true;
+  const [s, l] = A.length <= B.length ? [A, B] : [B, A];
+  if (s[s.length - 1] !== l[l.length - 1]) return false;      // last name must match
+  return s.every(t => t.length === 1 ? l.some(u => u[0] === t) : l.includes(t));
+}
+function today() { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function addMonths(iso, m) { const d = new Date(iso + "T00:00:00"); d.setMonth(d.getMonth() + Number(m)); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function daysUntil(iso) { if (!iso) return null; return Math.round((new Date(iso + "T00:00:00") - new Date(today() + "T00:00:00")) / 86400000); }
+function fmtDate(iso) { if (!iso) return ""; const d = new Date(iso + "T00:00:00"); return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }); }
+
+/* ============================================================
+   FINDMI -> HIERARCHY
+   ============================================================ */
+function isBK(r) {
+  if (r.division) return r.division === "bk";
+  return /burger\s*king|\bbk\b/i.test(r.storeName || "");
+}
+function storeShort(r) {
+  const n = digits(r.storeNumber);
+  let s = String(r.storeName || "").replace(/burger\s*king/i, "").replace(/#?\s*\d{3,6}/g, "").replace(/[-\s•.,/#]+$/, "").replace(/^[-\s•.,/#]+/, "").replace(/\s+/g, " ").trim();
+  return (s || r.storeName || "Store") + (n ? " · #" + n : "");
+}
+function coachIds(r) {
+  let ids = [];
+  if (Array.isArray(r.assignedAreaCoachIds)) ids = r.assignedAreaCoachIds.slice();
+  else if (r.assignedAreaCoachIds && typeof r.assignedAreaCoachIds === "object") ids = Object.values(r.assignedAreaCoachIds);
+  else if (r.assignedAreaCoachId) ids = [r.assignedAreaCoachId];
+  return ids.filter(Boolean);
+}
+function managersOf(r) {
+  if (Array.isArray(r.managers) && r.managers.length) return r.managers;
+  const out = [];
+  if ((r.storeManager || "").trim()) out.push({ name: r.storeManager, title: "GM", phone: r.managerCell });
+  if ((r.assistantManager || "").trim()) out.push({ name: r.assistantManager, title: "AGM", phone: r.assistantManagerCell });
+  return out;
+}
+
+function buildTree() {
+  const d = findmi || {};
+  const directors = d.directors || {}, coaches = d.areaCoaches || {}, rests = d.restaurants || {}, staff = d.vps || {};
+  storeIndex = {};
+
+  // VP: Sam, resolved from Support Staff by email (name fallback).
+  let vpRec = Object.values(staff).find(s => (s.email || "").trim().toLowerCase() === VP_EMAIL)
+           || Object.values(staff).find(s => samePerson(s.name, VP_NAME_FALLBACK));
+  const vp = { kind: "vp", id: vpRec ? "fm_" + vpRec.id : "fm_vp", name: vpRec ? vpRec.name : VP_NAME_FALLBACK,
+               email: vpRec ? vpRec.email : VP_EMAIL, phone: vpRec ? vpRec.phone : "", pos: "VP", children: [] };
+
+  const storeNode = r => {
+    const num = digits(r.storeNumber);
+    const node = { kind: "store", id: "store_" + (num || r.id), num, name: storeShort(r), fullName: r.storeName || "",
+                   address: r.address || "", phone: r.phone || "", email: r.email || "", managers: managersOf(r),
+                   dmIds: coachIds(r).filter(id => coaches[id]), doId: directors[r.assignedDirectorId] ? r.assignedDirectorId : "" };
+    if (num) storeIndex[num] = node;
+    return node;
+  };
+  const bkStores = Object.values(rests).filter(isBK).map(storeNode);
+
+  const dmNode = c => ({ kind: "dm", id: "fm_" + c.id, fmId: c.id, name: c.name, email: c.email || "", phone: c.phone || "", pos: "DM", stores: [] });
+  const dmNodes = {}; Object.values(coaches).forEach(c => dmNodes[c.id] = dmNode(c));
+  bkStores.forEach(s => s.dmIds.forEach(id => dmNodes[id].stores.push(s)));
+
+  const doNodes = {};
+  Object.values(directors).forEach(dr => {
+    doNodes[dr.id] = { kind: "do", id: "fm_" + dr.id, fmId: dr.id, name: dr.name, email: dr.email || "", phone: dr.phone || "", pos: "DO", children: [], directStores: [] };
+  });
+  Object.values(coaches).forEach(c => {
+    const dm = dmNodes[c.id];
+    if (!dm.stores.length) return;   // DMs with no BK stores don't appear in the BK hierarchy
+    const dn = doNodes[c.assignedDirectorId];
+    if (dn) dn.children.push(dm); else (vp.looseDMs = vp.looseDMs || []).push(dm);
+  });
+  bkStores.forEach(s => { if (!s.dmIds.length) { const dn = doNodes[s.doId]; if (dn) dn.directStores.push(s); } });
+  const unassigned = { kind: "un", id: "unassigned", name: "Unassigned stores", stores: bkStores.filter(s => !s.dmIds.length && !s.doId), children: [] };
+
+  Object.values(doNodes).forEach(dn => {
+    if (!dn.children.length && !dn.directStores.length) return;    // DOs with no BK stores don't appear
+    dn.children.sort((a, b) => a.name.localeCompare(b.name));
+    dn.directStores.sort((a, b) => a.name.localeCompare(b.name));
+    vp.children.push(dn);
+  });
+  vp.children.sort((a, b) => a.name.localeCompare(b.name));
+  (vp.looseDMs || []).forEach(dm => unassigned.children.push(dm));
+  Object.values(dmNodes).forEach(dm => dm.stores.sort((a, b) => a.name.localeCompare(b.name)));
+  tree = { vp, unassigned };
+}
+
+/* ============================================================
+   EMPLOYEES + COMPLIANCE
+   ============================================================ */
+// Everyone at a store: active employees whose storeNum matches (FindMi managers get merged in as badges).
+function storeEmployees(node) {
+  const num = node.num;
+  const list = Object.values(employees).filter(e => e.status !== "T" && digits(e.storeNum) === num);
+  list.sort((a, b) => ((POS[a.pos] || {}).rank ?? 9) - ((POS[b.pos] || {}).rank ?? 9) || a.name.localeCompare(b.name));
+  // FindMi says who the GM/AGM are. Attach a badge to the matching roster row;
+  // a FindMi manager missing from the roster shows as a ghost card.
+  const ghosts = [];
+  (node.managers || []).forEach(m => {
+    if (!(m.name || "").trim()) return;
+    const hit = list.find(e => samePerson(e.name, m.name));
+    const title = String(m.title || "").toUpperCase();
+    if (hit) hit._fm = title; else ghosts.push({ id: "ghost_" + node.num + "_" + normName(m.name).replace(/ /g, "_"), name: personName(m.name), pos: title === "AGM" ? "AGM" : "GM", train: /train/i.test(m.title || ""), phone: m.phone || "", storeNum: num, _ghost: true, certs: {} });
+  });
+  return list.concat(ghosts);
+}
+// FindMi people (VP/DO/DM) get their own cert record keyed fm_<id>; merged with any roster row by email/name.
+function personRecord(node) {
+  const byId = employees[node.id];
+  if (byId) return Object.assign({}, byId, { pos: node.pos, name: byId.name || node.name });
+  const match = Object.values(employees).find(e => (node.email && (e.email || "").toLowerCase() === node.email.toLowerCase()) || samePerson(e.name, node.name));
+  if (match) return match;
+  return { id: node.id, name: node.name, pos: node.pos, train: false, email: node.email || "", phone: node.phone || "", storeNum: "", certs: {}, _virtual: true };
+}
+function requiredCerts(emp) {
+  const r = config.requirements || {}, t = config.trainingRequirements || {};
+  if (emp.train && t[emp.pos] && t[emp.pos].length) return t[emp.pos];
+  return r[emp.pos] || [];
+}
+function certStatus(c) {
+  if (!c || !c.fileUrl) return "missing";
+  if (c.expiresAt) {
+    const n = daysUntil(c.expiresAt);
+    if (n < 0) return "expired";
+    if (n <= (config.warnDays || 30)) return "expiring";
+  }
+  return "ok";
+}
+function evalEmp(emp) {
+  const req = requiredCerts(emp);
+  const items = req.map(k => ({ key: k, label: (config.certs[k] || {}).label || k, status: certStatus((emp.certs || {})[k]), cert: (emp.certs || {})[k] }));
+  const counts = { ok: 0, expiring: 0, expired: 0, missing: 0 };
+  items.forEach(i => counts[i.status]++);
+  const compliant = req.length ? (counts.missing === 0 && counts.expired === 0) : null;
+  return { items, counts, required: req.length, compliant };
+}
+function aggregate(list) {
+  const a = { total: 0, compliant: 0, tracked: 0, missing: 0, expired: 0, expiring: 0 };
+  list.forEach(e => {
+    const ev = evalEmp(e); a.total++;
+    if (ev.required) { a.tracked++; if (ev.compliant) a.compliant++; }
+    a.missing += ev.counts.missing; a.expired += ev.counts.expired; a.expiring += ev.counts.expiring;
+  });
+  a.pct = a.tracked ? Math.round(a.compliant / a.tracked * 100) : null;
+  return a;
+}
+function tone(pct) { if (pct == null) return "na"; if (pct >= (config.greenPct || 90)) return "ok"; if (pct >= (config.amberPct || 70)) return "warn"; return "bad"; }
+function meterHtml(a) {
+  const t = tone(a.pct);
+  return `<div class="meter"><span class="pct c-${t}">${a.pct == null ? "—" : a.pct + "%"}</span><span class="bar"><i class="b-${t}" style="width:${a.pct || 0}%"></i></span><span class="cnt">${a.compliant}/${a.tracked} ok${a.expired ? " · " + a.expired + " expired" : ""}${a.expiring ? " · " + a.expiring + " expiring" : ""}${a.missing ? " · " + a.missing + " missing" : ""}</span></div>`;
+}
+function subtreeEmployees(node) {
+  if (node.kind === "store") return storeEmployees(node);
+  let out = [];
+  if (node.kind === "dm") { out.push(personRecord(node)); node.stores.forEach(s => out = out.concat(storeEmployees(s))); }
+  else if (node.kind === "do") { out.push(personRecord(node)); node.children.forEach(dm => out = out.concat(subtreeEmployees(dm))); node.directStores.forEach(s => out = out.concat(storeEmployees(s))); }
+  else if (node.kind === "vp") { out.push(personRecord(node)); node.children.forEach(dn => out = out.concat(subtreeEmployees(dn))); }
+  else if (node.kind === "un") { node.children.forEach(dm => out = out.concat(subtreeEmployees(dm))); node.stores.forEach(s => out = out.concat(storeEmployees(s))); }
+  return out;
+}
+function matchesView(e) {
+  if (view === "all") return true;
+  const ev = evalEmp(e);
+  if (view === "gaps") return ev.counts.missing + ev.counts.expired > 0;
+  if (view === "expiring") return ev.counts.expiring > 0;
+  return true;
+}
+
+/* ============================================================
+   RENDER — strip, tree, employees
+   ============================================================ */
+function render() {
+  if (!tree) return;
+  renderStrip();
+  renderCrumbs();
+  renderTree();
+  renderDetail();
+  $("layout").classList.toggle("has-detail", !!selectedId);
+}
+function renderStrip() {
+  const all = subtreeEmployees(tree.vp).concat(subtreeEmployees(tree.unassigned));
+  const a = aggregate(all);
+  const orphans = Object.values(employees).filter(e => e.status !== "T" && e.storeNum && !storeIndex[digits(e.storeNum)]).length;
+  const t = tone(a.pct);
+  $("strip").innerHTML = `
+    <div class="stat ${t}"><div class="l">Compliance</div><div class="v c-${t}">${a.pct == null ? "—" : a.pct + "%"}</div><div class="s">${a.compliant} of ${a.tracked} fully certified</div></div>
+    <div class="stat"><div class="l">People</div><div class="v">${a.total}</div><div class="s">${Object.keys(storeIndex).length} BK stores · ${Object.values(employees).filter(e => e.status !== "T").length} on roster</div></div>
+    <div class="stat bad"><div class="l">Missing</div><div class="v c-bad">${a.missing}</div><div class="s">required certs not on file</div></div>
+    <div class="stat bad"><div class="l">Expired</div><div class="v c-bad">${a.expired}</div><div class="s">past their expiry date</div></div>
+    <div class="stat warn"><div class="l">Expiring</div><div class="v c-warn">${a.expiring}</div><div class="s">within ${config.warnDays || 30} days</div></div>
+    ${orphans ? `<div class="stat warn"><div class="l">Unmatched</div><div class="v c-warn">${orphans}</div><div class="s">roster rows at stores not in FindMi</div></div>` : ""}`;
+}
+function renderCrumbs() {
+  const parts = [`<b onclick="navigate({})">${esc(tree.vp.name)}</b>`];
+  const dn = open.do && findNode(open.do), dm = open.dm && findNode(open.dm), st = open.store && findNode(open.store);
+  if (dn) parts.push("›", `<b onclick="navigate({do:'${dn.id}'})">${esc(dn.name)}</b>`);
+  if (dm) parts.push("›", `<b onclick="navigate({do:'${open.do}',dm:'${dm.id}'})">${esc(dm.name)}</b>`);
+  if (st) parts.push("›", `<b>${esc(st.name)}</b>`);
+  $("crumbs").innerHTML = parts.join(" ");
+}
+function findNode(id) {
+  let hit = null;
+  const walk = n => { if (hit) return; if (n.id === id) { hit = n; return; }
+    (n.children || []).forEach(walk); (n.stores || []).forEach(walk); (n.directStores || []).forEach(walk); };
+  walk(tree.vp); walk(tree.unassigned);
+  return hit;
+}
+window.navigate = function (o) { open = { do: o.do || null, dm: o.dm || null, store: o.store || null }; render(); };
+
+function personChip(node) {
+  const rec = personRecord(node), ev = evalEmp(rec);
+  const t = ev.required ? (ev.compliant ? (ev.counts.expiring ? "warn" : "ok") : "bad") : "na";
+  const col = { ok: "#16a34a", warn: "#f59e0b", bad: "#e8091b", na: "#cbd5e1" }[t];
+  return `<span class="person-chip" onclick="event.stopPropagation(); selectPerson('${esc(rec.id)}', ${JSON.stringify(node.id)})"><span class="dot" style="background:${col}"></span>${esc(posLabel(node.pos))} certs: ${ev.required ? ev.counts.ok + "/" + ev.required : "none required"}</span>`;
+}
+function nodeRow(node, kindCls, extraHtml) {
+  const a = aggregate(subtreeEmployees(node));
+  const sub = node.kind === "store" ? [node.address].filter(Boolean).join(" · ")
+            : node.kind === "un" ? "Stores or DMs with no Director in FindMi"
+            : [node.email, fmtPhone(node.phone)].filter(Boolean).join(" · ");
+  return `<div class="row"><span class="kind ${kindCls}">${node.kind === "un" ? "?" : node.kind}</span><div class="grow"><div class="ttl">${esc(node.name)}</div><div class="sub">${esc(sub)}</div></div>${extraHtml || ""}${meterHtml(a)}<span class="chev">›</span></div>`;
+}
+function renderTree() {
+  const vp = tree.vp;
+  let h = `<div class="node open"><div class="row" style="cursor:default"><span class="kind">VP</span><div class="grow"><div class="ttl">${esc(vp.name)}</div><div class="sub">${esc([vp.email, fmtPhone(vp.phone)].filter(Boolean).join(" · "))}</div></div>${personChip(vp)}${meterHtml(aggregate(subtreeEmployees(vp)))}</div><div class="kids">`;
+  vp.children.forEach(dn => {
+    const isOpen = open.do === dn.id;
+    h += `<div class="node ${isOpen ? "open" : ""}" data-id="${dn.id}">`;
+    h += `<div onclick="toggleNode('do','${dn.id}')">${nodeRow(dn, "do", personChip(dn))}</div>`;
+    if (isOpen) {
+      h += `<div class="kids">`;
+      dn.children.forEach(dm => h += dmBlock(dm));
+      if (dn.directStores.length) { h += `<div class="group-h">Direct reports (no DM)</div>`; dn.directStores.forEach(s => h += storeBlock(s)); }
+      if (!dn.children.length && !dn.directStores.length) h += `<div class="empty">No BK stores under this Director.</div>`;
+      h += `</div>`;
+    }
+    h += `</div>`;
+  });
+  const un = tree.unassigned;
+  if (un.children.length || un.stores.length) {
+    const isOpen = open.do === un.id;
+    h += `<div class="node ${isOpen ? "open" : ""}"><div onclick="toggleNode('do','${un.id}')">${nodeRow(un, "un")}</div>`;
+    if (isOpen) { h += `<div class="kids">`; un.children.forEach(dm => h += dmBlock(dm)); un.stores.forEach(s => h += storeBlock(s)); h += `</div>`; }
+    h += `</div>`;
+  }
+  h += `</div></div>`;
+  // Roster rows whose store isn't a BK store in FindMi.
+  const orphans = Object.values(employees).filter(e => e.status !== "T" && !storeIndex[digits(e.storeNum)]).filter(matchesView);
+  if (orphans.length) {
+    const isOpen = open.store === "orphans";
+    h += `<div class="node ${isOpen ? "open" : ""}"><div class="row" onclick="toggleNode('store','orphans')"><span class="kind un">?</span><div class="grow"><div class="ttl">Not in a FindMi BK store</div><div class="sub">Roster rows whose store number has no match (other brands, office, or a store missing from FindMi)</div></div>${meterHtml(aggregate(orphans))}<span class="chev">›</span></div>`;
+    if (isOpen) h += `<div class="kids">${empList(orphans, true)}</div>`;
+    h += `</div>`;
+  }
+  $("tree").innerHTML = h;
+}
+function dmBlock(dm) {
+  const isOpen = open.dm === dm.id;
+  let h = `<div class="node ${isOpen ? "open" : ""}"><div onclick="toggleNode('dm','${dm.id}')">${nodeRow(dm, "dm", personChip(dm))}</div>`;
+  if (isOpen) { h += `<div class="kids">`; dm.stores.forEach(s => h += storeBlock(s)); if (!dm.stores.length) h += `<div class="empty">No BK stores.</div>`; h += `</div>`; }
+  return h + `</div>`;
+}
+function storeBlock(s) {
+  const isOpen = open.store === s.id;
+  const gm = (s.managers || []).find(m => /^gm$/i.test(m.title || ""));
+  let h = `<div class="node ${isOpen ? "open" : ""}"><div onclick="toggleNode('store','${s.id}')">${nodeRow(s, "store", gm ? `<span class="pill fm" title="GM per FindMi">GM: ${esc(personName(gm.name))}</span>` : "")}</div>`;
+  if (isOpen) h += `<div class="kids">${empList(storeEmployees(s).filter(matchesView))}</div>`;
+  return h + `</div>`;
+}
+function empList(list, showStore) {
+  if (!list.length) return `<div class="empty">${view === "all" ? "No one on the roster for this store yet — import the HR sheet or add a person." : "Nobody matches this filter here."}</div>`;
+  let h = `<div class="emp-list">`;
+  let lastPos = null;
+  list.forEach(e => {
+    if (e.pos !== lastPos) { h += `<div class="group-h">${esc(posLabel(e.pos))}${e.pos ? "s" : ""}</div>`; lastPos = e.pos; }
+    const ev = evalEmp(e);
+    const pills = ev.items.map(i => `<span class="pill ${i.status === "ok" ? "ok" : i.status === "expiring" ? "warn" : "bad"}" title="${esc(i.label)}: ${i.status}${i.cert && i.cert.expiresAt ? " · exp " + fmtDate(i.cert.expiresAt) : ""}">${esc(i.label)}${i.status === "ok" ? " ✓" : i.status === "expiring" ? " ⏳" : i.status === "expired" ? " ✗ exp" : " ✗"}</span>`).join("");
+    h += `<div class="emp ${selectedId === e.id ? "sel" : ""}" onclick="selectEmp('${esc(e.id)}')">
+      <div><div class="nm">${esc(e.name)} ${e.train ? '<span class="pill train">In training</span>' : ""}${e._fm ? `<span class="pill fm">FindMi ${esc(e._fm)}</span>` : ""}${e._ghost ? `<span class="pill info" title="FindMi lists this manager but there is no roster row — import the HR sheet or add them">Not on roster</span>` : ""}</div>
+      <div class="pos">${esc(e.eeCode || "")}${e.eeCode ? " · " : ""}${esc(posLabel(e.pos))}${showStore && e.storeDesc ? " · " + esc(e.storeDesc) : ""}</div></div>
+      <div class="certs">${pills || '<span class="pill na">no certs required</span>'}</div></div>`;
+  });
+  return h + `</div>`;
+}
+window.toggleNode = function (level, id) {
+  if (level === "do") { open = { do: open.do === id ? null : id, dm: null, store: null }; }
+  else if (level === "dm") { open.dm = open.dm === id ? null : id; open.store = null; }
+  else { open.store = open.store === id ? null : id; }
+  render();
+};
+window.setView = function (v) { view = v; document.querySelectorAll("#viewSeg button").forEach(b => b.classList.toggle("on", b.dataset.v === v)); render(); };
+
+/* ============================================================
+   DETAIL PANEL
+   ============================================================ */
+let selectedVirtualNode = null;
+window.selectEmp = function (id) { selectedId = selectedId === id ? null : id; selectedVirtualNode = null; render(); };
+window.selectPerson = function (id, nodeId) { selectedId = id; selectedVirtualNode = nodeId; render(); };
+window.closeDetail = function () { selectedId = null; render(); };
+function currentEmp() {
+  if (!selectedId) return null;
+  if (employees[selectedId]) return employees[selectedId];
+  if (selectedVirtualNode) { const n = findNode(selectedVirtualNode); if (n) return personRecord(n); }
+  // ghost manager card
+  for (const num in storeIndex) { const g = storeEmployees(storeIndex[num]).find(e => e.id === selectedId); if (g) return g; }
+  return null;
+}
+function renderDetail() {
+  const box = $("detail");
+  const e = currentEmp();
+  if (!e) { box.style.display = "none"; return; }
+  box.style.display = "block";
+  const ev = evalEmp(e);
+  const st = storeIndex[digits(e.storeNum)];
+  const otherCerts = Object.keys(e.certs || {}).filter(k => !ev.items.some(i => i.key === k) && (e.certs[k] || {}).fileUrl);
+  const kv = (k, v, copy) => v ? `<dt>${k}</dt><dd class="${copy ? "cp" : ""}" ${copy ? `onclick="copyText('${esc(v)}')"` : ""}>${esc(v)}</dd>` : "";
+  const persisted = !e._virtual && !e._ghost;
+  box.innerHTML = `
+    <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
+      <div><h2>${esc(e.name)}</h2><div class="meta">${esc(posLabel(e.pos))}${e.train ? " · In training" : ""}${st ? " · " + esc(st.name) : e.storeDesc ? " · " + esc(e.storeDesc) : ""}</div></div>
+      <div style="display:flex;gap:6px;">${persisted ? `<button class="btn xs edit-only" onclick="openEmpEditor('${esc(e.id)}')">✎ Edit</button>` : e._ghost ? `<button class="btn xs edit-only" onclick="adoptGhost('${esc(e.id)}')">+ Add to roster</button>` : ""}<button class="x" onclick="closeDetail()">×</button></div>
+    </div>
+    <div style="margin-top:10px;">${ev.required ? meterHtml({ pct: Math.round(ev.counts.ok / ev.required * 100), compliant: ev.counts.ok, tracked: ev.required, expired: ev.counts.expired, expiring: ev.counts.expiring, missing: ev.counts.missing }) : '<span class="pill na">No certificates required for this position</span>'}</div>
+    <dl class="kv">${kv("EE Code", e.eeCode, true)}${kv("Phone", fmtPhone(e.phone), true)}${kv("Work email", e.email, true)}${kv("Personal", e.persEmail, true)}${kv("Entity", e.entity)}${e.hireDate ? kv("Hired", fmtDate(e.hireDate)) : ""}</dl>
+    <div class="sect">Required certificates</div>
+    ${ev.items.length ? ev.items.map(i => certCard(e, i.key, i.cert, i.status, true)).join("") : `<div class="empty">Nothing required for ${esc(posLabel(e.pos))}s. Set requirements in Settings.</div>`}
+    <div class="sect">Other certificates</div>
+    ${otherCerts.map(k => certCard(e, k, e.certs[k], certStatus(e.certs[k]), false)).join("") || `<div class="empty" style="padding:6px;">None</div>`}
+    <div class="edit-only block" style="margin-top:8px;"><select id="otherCertSel" style="width:auto;max-width:60%;">${Object.keys(config.certs).filter(k => !ev.items.some(i => i.key === k) && !otherCerts.includes(k)).map(k => `<option value="${k}">${esc(config.certs[k].label)}</option>`).join("")}</select> <button class="btn xs" onclick="uploadCert('${esc(e.id)}', document.getElementById('otherCertSel').value)">⬆ Upload another cert</button></div>
+    ${e._ghost ? `<p style="font-size:.74rem;color:var(--warn);margin-top:12px;">FindMi lists this person as ${esc(e.pos)} here, but there's no HR roster row. Add them to the roster (or import the sheet) before uploading certificates.</p>` : ""}`;
+}
+function certCard(e, key, c, status, required) {
+  const label = (config.certs[key] || {}).label || key;
+  const months = (config.certs[key] || {}).months;
+  const cls = status === "ok" ? "ok" : status === "expiring" ? "warn" : status === "missing" && !required ? "" : "bad";
+  const stxt = status === "ok" ? "Current" + (c && c.expiresAt ? " · expires " + fmtDate(c.expiresAt) : "")
+             : status === "expiring" ? "Expiring " + fmtDate(c.expiresAt) + " (" + daysUntil(c.expiresAt) + " days)"
+             : status === "expired" ? "EXPIRED " + fmtDate(c.expiresAt) : "Not on file";
+  const canUpload = !e._ghost;
+  return `<div class="cert ${cls}">
+    <div><div class="cn">${esc(label)}${required ? "" : ' <span class="pill na">optional</span>'}</div><div class="cs">${esc(stxt)}${c && c.uploadedAt ? " · uploaded " + new Date(c.uploadedAt).toLocaleDateString() + (c.uploadedBy ? " by " + esc(c.uploadedBy) : "") : ""}</div></div>
+    <div class="acts">${c && c.fileUrl ? `<a class="btn xs" href="${esc(c.fileUrl)}" target="_blank" rel="noopener">View</a>` : ""}${canUpload ? `<button class="btn xs edit-only" onclick="uploadCert('${esc(e.id)}','${key}')">${c && c.fileUrl ? "Replace" : "⬆ Upload"}</button>` : ""}${c && c.fileUrl ? `<button class="btn xs danger edit-only" onclick="removeCert('${esc(e.id)}','${key}')">Remove</button>` : ""}</div>
+    ${c && c.fileUrl ? `<div class="dates edit-only block"><label>Issued <input type="date" value="${esc(c.issuedAt || "")}" onchange="setCertDate('${esc(e.id)}','${key}','issuedAt',this.value)"></label><label>Expires <input type="date" value="${esc(c.expiresAt || "")}" onchange="setCertDate('${esc(e.id)}','${key}','expiresAt',this.value)"></label>${months ? `<span style="color:var(--muted)">valid ${months} mo</span>` : ""}</div>` : ""}
+  </div>`;
+}
+window.copyText = function (t) { navigator.clipboard && navigator.clipboard.writeText(t).then(() => toast("Copied")); };
+
+/* ============================================================
+   FIRESTORE WRITES
+   ============================================================ */
+async function saveEmp(id, data) {
+  await FS.setDoc(FS.doc(FS.db, "employees", id), Object.assign({}, data, { updatedAt: Date.now() }), { merge: true });
+}
+window.setCertDate = async function (id, key, field, val) {
+  if (!employees[id]) return;
+  const c = Object.assign({}, (employees[id].certs || {})[key] || {});
+  c[field] = val || "";
+  if (field === "issuedAt" && val && (config.certs[key] || {}).months && !c._manualExpiry) c.expiresAt = addMonths(val, config.certs[key].months);
+  if (field === "expiresAt") c._manualExpiry = !!val;
+  await FS.updateDoc(FS.doc(FS.db, "employees", id), { ["certs." + key]: c, updatedAt: Date.now() });
+  toast("Saved");
+};
+window.removeCert = async function (id, key) {
+  if (!confirm("Remove this certificate from " + employees[id].name + "? The file link is discarded.")) return;
+  await FS.updateDoc(FS.doc(FS.db, "employees", id), { ["certs." + key]: FS.deleteField(), updatedAt: Date.now() });
+  toast("Certificate removed");
+};
+window.uploadCert = function (id, key) {
+  if (!unlocked) { openPw(); return; }
+  if (!key) return;
+  const emp = employees[id] || currentEmp();
+  if (!emp) return;
+  if (!fsClient) { if (!window.filestack) { alert("Upload isn't available — the Filestack script didn't load."); return; } fsClient = filestack.init(FILESTACK_KEY); }
+  const sub = emp.storeNum ? digits(emp.storeNum) : "corporate";
+  fsClient.picker({
+    accept: ["application/pdf", "image/*"], maxFiles: 1,
+    fromSources: ["local_file_system", "googledrive", "dropbox", "onedrive"],
+    storeTo: { path: "/trainmi/" + sub + "/" + (emp.eeCode || id) + "/" + key + "/" },
+    onUploadDone: async r => {
+      const f = r.filesUploaded && r.filesUploaded[0];
+      if (!f) return;
+      const prev = (emp.certs || {})[key] || {};
+      const cert = { fileUrl: f.url, fileName: f.filename, handle: f.handle, size: f.size || 0,
+                     uploadedAt: Date.now(), uploadedBy: sessionName(), issuedAt: today(),
+                     expiresAt: (config.certs[key] || {}).months ? addMonths(today(), config.certs[key].months) : (prev.expiresAt || "") };
+      // Virtual FindMi person (VP/DO/DM) gets a record on first upload.
+      const base = employees[id] ? {} : { name: emp.name, pos: emp.pos, train: !!emp.train, email: emp.email || "", phone: emp.phone || "", storeNum: emp.storeNum || "", status: "A", source: "findmi", createdAt: Date.now() };
+      await saveEmp(id, Object.assign(base, { ["certs"]: Object.assign({}, emp.certs || {}, { [key]: cert }) }));
+      toast("Certificate uploaded — check the issue date");
+    },
+    onFileUploadFailed: (f, e) => alert("Upload failed: " + ((e && e.message) || "unknown error"))
+  }).open();
+};
+function sessionName() { try { return localStorage.getItem("trainmi_editor") || "editor"; } catch (e) { return "editor"; } }
+
+/* ---- employee editor ---- */
+window.openEmpEditor = function (id) {
+  if (!unlocked) { openPw(); return; }
+  const e = id ? employees[id] : null;
+  $("empModalTitle").textContent = e ? "Edit person" : "Add person";
+  $("eId").value = e ? e.id : "";
+  $("eCode").value = e ? (e.eeCode || "") : ""; $("eCode").disabled = !!(e && e.eeCode);
+  $("eName").value = e ? e.name : "";
+  $("ePos").innerHTML = POSITIONS.map(p => `<option value="${p.key}">${esc(p.label)}</option>`).join("");
+  $("ePos").value = e ? e.pos : "TM";
+  $("eTrain").checked = !!(e && e.train);
+  const stores = Object.values(storeIndex).sort((a, b) => a.name.localeCompare(b.name));
+  $("eStore").innerHTML = `<option value="">— none (above store) —</option>` + stores.map(s => `<option value="${s.num}">${esc(s.name)}</option>`).join("");
+  $("eStore").value = e ? digits(e.storeNum) : (open.store && findNode(open.store) ? findNode(open.store).num : "");
+  $("ePhone").value = e ? (e.phone || "") : ""; $("eEmail").value = e ? (e.email || "") : ""; $("ePers").value = e ? (e.persEmail || "") : "";
+  $("eStatus").value = e ? (e.status || "A") : "A";
+  $("empDel").style.display = e ? "" : "none";
+  $("empErr").textContent = "";
+  $("empModal").classList.add("active");
+};
+window.adoptGhost = function (ghostId) {
+  const g = currentEmp(); if (!g) return;
+  openEmpEditor(null);
+  $("eName").value = g.name; $("ePos").value = g.pos; $("eTrain").checked = !!g.train; $("eStore").value = g.storeNum; $("ePhone").value = g.phone || "";
+};
+window.saveEmployee = async function () {
+  const id0 = $("eId").value, code = $("eCode").value.trim().toUpperCase(), name = $("eName").value.trim();
+  if (!name) { $("empErr").textContent = "Name is required."; return; }
+  const id = id0 || (code ? "ee_" + code : "m_" + Date.now().toString(36));
+  if (!id0 && employees[id]) { $("empErr").textContent = "EE code " + code + " already exists (" + employees[id].name + ")."; return; }
+  const st = storeIndex[$("eStore").value];
+  const data = { name, eeCode: code, pos: $("ePos").value, train: $("eTrain").checked, storeNum: $("eStore").value,
+                 storeDesc: st ? st.fullName : (employees[id0] || {}).storeDesc || "", phone: fmtPhone($("ePhone").value), email: $("eEmail").value.trim(),
+                 persEmail: $("ePers").value.trim(), status: $("eStatus").value, source: id0 ? (employees[id0].source || "manual") : "manual" };
+  if (!id0) data.createdAt = Date.now();
+  await saveEmp(id, data);
+  closeModal("empModal"); selectedId = id; toast("Saved");
+};
+window.deleteEmployee = async function () {
+  const id = $("eId").value; if (!id || !employees[id]) return;
+  const e = employees[id];
+  const ans = prompt("Delete " + e.name + " and ALL their certificate records?\n\nThis cannot be undone. Type DELETE to confirm. (To keep their certs but hide them, set Status to Terminated instead.)");
+  if (ans !== "DELETE") return;
+  await FS.deleteDoc(FS.doc(FS.db, "employees", id));
+  closeModal("empModal"); if (selectedId === id) selectedId = null; toast("Deleted");
+};
+
+/* ============================================================
+   IMPORT
+   ============================================================ */
+let impRows = null;
+window.openImport = function () {
+  if (!unlocked) { openPw(); return; }
+  impRows = null; $("impFile").textContent = "No file selected"; $("impPreview").innerHTML = ""; $("impSummary").textContent = ""; $("impApply").disabled = true; $("impRemoveWrap").style.display = "none"; $("impRemove").checked = false;
+  $("impModal").classList.add("active");
+};
+(function wireDrop() {
+  const z = $("dropZone"), i = $("impInput");
+  z.addEventListener("click", () => i.click());
+  z.addEventListener("dragover", e => { e.preventDefault(); z.style.borderColor = "#251d7f"; });
+  z.addEventListener("dragleave", () => z.style.borderColor = "");
+  z.addEventListener("drop", e => { e.preventDefault(); z.style.borderColor = ""; if (e.dataTransfer.files[0]) handleImportFile(e.dataTransfer.files[0]); });
+  i.addEventListener("change", () => { if (i.files[0]) handleImportFile(i.files[0]); i.value = ""; });
+})();
+function handleImportFile(file) {
+  $("impFile").textContent = file.name;
+  const rd = new FileReader();
+  rd.onload = ev => {
+    try {
+      const wb = XLSX.read(new Uint8Array(ev.target.result), { type: "array" });
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" });
+      parseImport(rows);
+    } catch (err) { $("impPreview").innerHTML = `<div class="err" style="padding:10px;">Couldn't read that file: ${esc(err.message)}</div>`; }
+  };
+  rd.readAsArrayBuffer(file);
+}
+function parseImport(rows) {
+  const get = (row, names) => { for (const n of names) for (const k of Object.keys(row)) if (k.toLowerCase().replace(/[^a-z]/g, "") === n) return String(row[k] ?? "").trim(); return ""; };
+  const seen = new Set();
+  const incoming = [];
+  rows.forEach(row => {
+    const code = get(row, ["eecode", "employeecode", "eeid", "employeeid", "code"]).toUpperCase();
+    const rawName = get(row, ["eename", "employeename", "name", "employee"]);
+    if (!code || !rawName) return;
+    if (seen.has(code)) return; seen.add(code);
+    const dept = get(row, ["departmentdesc", "department", "position", "title", "jobtitle"]);
+    const mp = mapPosition(dept);
+    const status = (get(row, ["status"]) || "A").toUpperCase().charAt(0);
+    incoming.push({
+      id: "ee_" + code, eeCode: code, name: personName(rawName), nickname: get(row, ["nickname"]),
+      pos: mp.pos, train: mp.train, deptDesc: dept,
+      storeNum: digits(get(row, ["store", "storenumber", "storeno", "location"])), storeDesc: get(row, ["storedesc", "storename", "locationdesc"]),
+      email: get(row, ["workemail", "email"]).toLowerCase(), persEmail: get(row, ["persemail", "personalemail"]).toLowerCase(),
+      phone: fmtPhone(get(row, ["phone", "phonenumber", "primaryphone", "cell", "mobile"])),
+      entity: get(row, ["payrollprofiledesc", "entity", "company"]),
+      hireDate: get(row, ["hiredate", "dateofhire", "startdate"]),
+      status: status === "T" || status === "I" ? "T" : "A"
+    });
+  });
+  const FIELDS = ["name", "pos", "train", "storeNum", "storeDesc", "email", "persEmail", "phone", "entity", "status", "nickname", "deptDesc"];
+  impRows = incoming.map(r => {
+    const ex = employees[r.id];
+    if (!ex) return { r, kind: "new", changes: [] };
+    const changes = FIELDS.filter(f => String(ex[f] ?? "") !== String(r[f] ?? "") && !(f === "train" && !!ex[f] === !!r[f]) && !(r[f] === "" && f !== "status"));   // never blank a field
+    return { r, kind: changes.length ? "upd" : "same", changes, ex };
+  });
+  const sheetIds = new Set(incoming.map(r => r.id));
+  impAbsent = Object.values(employees).filter(e => e.id.startsWith("ee_") && e.status !== "T" && !sheetIds.has(e.id));
+  $("impRemoveWrap").style.display = "flex";
+  renderImportPreview();
+}
+let impAbsent = [];
+window.renderImportPreview = function () {
+  if (!impRows) return;
+  const n = impRows.filter(x => x.kind === "new").length, u = impRows.filter(x => x.kind === "upd").length, s = impRows.filter(x => x.kind === "same").length;
+  const rem = $("impRemove").checked ? impAbsent.length : 0;
+  const unknownStores = new Set(impRows.filter(x => x.r.storeNum && !storeIndex[x.r.storeNum]).map(x => x.r.storeDesc || x.r.storeNum));
+  $("impSummary").innerHTML = `<span class="c-ok">+ ${n} new</span> · <span class="c-warn">↻ ${u} updated</span> · <span class="c-na">✓ ${s} unchanged</span>${rem ? ` · <span class="c-bad">− ${rem} to be marked terminated</span>` : ""}${unknownStores.size ? `<div style="font-weight:500;font-size:.74rem;color:var(--warn);margin-top:4px;">⚠ ${unknownStores.size} store${unknownStores.size === 1 ? "" : "s"} in the sheet aren't BK stores in FindMi (${esc([...unknownStores].slice(0, 6).join(", "))}${unknownStores.size > 6 ? "…" : ""}). Those people import anyway and show under "Not in a FindMi BK store".</div>` : ""}`;
+  $("impApply").disabled = !(n + u + rem);
+  const show = impRows.filter(x => x.kind !== "same");
+  const fl = { name: "Name", pos: "Position", train: "Training", storeNum: "Store", storeDesc: "Store desc", email: "Email", persEmail: "Personal", phone: "Phone", entity: "Entity", status: "Status", nickname: "Nickname", deptDesc: "Dept" };
+  let h = `<table class="imp-table"><thead><tr><th></th><th>EE</th><th>Name</th><th>Position</th><th>Store</th><th>Contact</th><th>Changes</th></tr></thead><tbody>`;
+  show.forEach(x => {
+    const r = x.r;
+    h += `<tr class="${x.kind}"><td>${x.kind === "new" ? "+ new" : "↻"}</td><td>${esc(r.eeCode)}</td><td>${esc(r.name)}</td><td>${esc(posLabel(r.pos))}${r.train ? " (T)" : ""}<div class="sub">${esc(r.deptDesc)}</div></td><td>${esc(r.storeDesc || r.storeNum)}${r.storeNum && !storeIndex[r.storeNum] ? ' <span class="pill warn">not in FindMi</span>' : ""}</td><td class="sub">${esc([r.phone, r.email || r.persEmail].filter(Boolean).join(" · "))}</td><td>${x.changes.map(f => `<div><b>${fl[f] || f}:</b> <span class="was">${esc(String(x.ex[f] ?? ""))}</span> → ${esc(String(r[f]))}</div>`).join("")}</td></tr>`;
+  });
+  if ($("impRemove").checked) impAbsent.forEach(e => { h += `<tr class="rem"><td>− term</td><td>${esc(e.eeCode)}</td><td>${esc(e.name)}</td><td>${esc(posLabel(e.pos))}</td><td>${esc(e.storeDesc || e.storeNum)}</td><td></td><td>Not in sheet → marked terminated (certs kept)</td></tr>`; });
+  if (!show.length && !rem) h += `<tr><td colspan="7" class="empty">Everything already matches the database.</td></tr>`;
+  h += `</tbody></table>`;
+  $("impPreview").innerHTML = h;
+};
+window.applyImport = async function () {
+  if (!impRows) return;
+  const todo = impRows.filter(x => x.kind !== "same");
+  const rem = $("impRemove").checked ? impAbsent : [];
+  if (!confirm(`Apply ${todo.filter(x => x.kind === "new").length} new, ${todo.filter(x => x.kind === "upd").length} updated${rem.length ? ", " + rem.length + " terminated" : ""}?`)) return;
+  $("impApply").disabled = true; $("impApply").textContent = "Writing…";
+  try {
+    const ops = [];
+    todo.forEach(x => {
+      const d = Object.assign({}, x.r, { source: "import", updatedAt: Date.now(), importedAt: Date.now() });
+      Object.keys(d).forEach(k => { if (d[k] === "" && x.kind === "upd") delete d[k]; });   // keep manual values when the sheet is blank
+      if (x.kind === "new") d.createdAt = Date.now();
+      ops.push([x.r.id, d]);
+    });
+    rem.forEach(e => ops.push([e.id, { status: "T", terminatedAt: Date.now(), updatedAt: Date.now() }]));
+    for (let i = 0; i < ops.length; i += 400) {
+      const b = FS.writeBatch(FS.db);
+      ops.slice(i, i + 400).forEach(([id, d]) => b.set(FS.doc(FS.db, "employees", id), d, { merge: true }));
+      await b.commit();
+    }
+    toast("Imported " + ops.length + " records");
+    closeModal("impModal");
+  } catch (e) { alert("Import failed: " + e.message); }
+  finally { $("impApply").textContent = "Apply to database"; }
+};
+
+/* ============================================================
+   EXPORT REPORT
+   ============================================================ */
+window.exportReport = function () {
+  if (!window.XLSX) { alert("Excel library didn't load."); return; }
+  const certKeys = Object.keys(config.certs);
+  const rowsOf = [];
+  const walk = (node, ctx) => {
+    if (node.kind === "store") storeEmployees(node).forEach(e => rowsOf.push([e, Object.assign({}, ctx, { store: node.name })]));
+    else {
+      if (node.kind !== "un") rowsOf.push([personRecord(node), Object.assign({}, ctx, { store: "" })]);
+      const c2 = Object.assign({}, ctx); if (node.kind === "do") c2.do = node.name; if (node.kind === "dm") c2.dm = node.name;
+      (node.children || []).forEach(n => walk(n, c2)); (node.stores || node.directStores || []).forEach(n => walk(n, c2));
+    }
+  };
+  walk(tree.vp, { do: "", dm: "" }); walk(tree.unassigned, { do: "(unassigned)", dm: "" });
+  Object.values(employees).filter(e => e.status !== "T" && !storeIndex[digits(e.storeNum)]).forEach(e => rowsOf.push([e, { do: "", dm: "", store: "(not in FindMi) " + (e.storeDesc || e.storeNum || "") }]));
+  const data = rowsOf.map(([e, c]) => {
+    const ev = evalEmp(e); const o = { "EE Code": e.eeCode || "", "Name": e.name, "Position": posLabel(e.pos), "In Training": e.train ? "Yes" : "", "Store": c.store, "DM": c.dm, "Director": c.do, "Compliant": ev.required ? (ev.compliant ? "Yes" : "No") : "n/a", "Missing": ev.counts.missing, "Expired": ev.counts.expired, "Expiring": ev.counts.expiring };
+    certKeys.forEach(k => { const c = (e.certs || {})[k]; const req = ev.items.some(i => i.key === k); o[config.certs[k].label] = c && c.fileUrl ? (certStatus(c) + (c.expiresAt ? " " + c.expiresAt : "")) : (req ? "MISSING" : ""); });
+    o["Phone"] = fmtPhone(e.phone); o["Email"] = e.email || e.persEmail || "";
+    return o;
+  });
+  const ws = XLSX.utils.json_to_sheet(data); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Certifications");
+  ws["!cols"] = Object.keys(data[0] || {}).map(k => ({ wch: Math.min(34, Math.max(k.length, ...data.map(r => String(r[k] ?? "").length)) + 2) }));
+  XLSX.writeFile(wb, "TrainMi_Certifications_" + today() + ".xlsx");
+};
+
+/* ============================================================
+   SEARCH
+   ============================================================ */
+window.onSearch = function (v) {
+  searchQ = (v || "").trim().toLowerCase();
+  $("qClr").style.display = searchQ ? "flex" : "none";
+  renderSearch();
+};
+window.clearSearch = function () { $("q").value = ""; searchQ = ""; $("qClr").style.display = "none"; renderSearch(); };
+function renderSearch() {
+  const box = $("results");
+  if (!searchQ || !tree) { box.style.display = "none"; $("tree").style.display = ""; return; }
+  const q = searchQ, hit = s => String(s || "").toLowerCase().includes(q);
+  const people = Object.values(employees).filter(e => e.status !== "T" && (hit(e.name) || hit(e.eeCode) || hit(e.email) || hit(e.persEmail) || hit(fmtPhone(e.phone)) || hit(posLabel(e.pos)) || hit(e.storeDesc) || hit(e.deptDesc))).slice(0, 40);
+  const nodes = [];
+  const walk = (n, path) => {
+    if (n.kind !== "vp" && (hit(n.name) || hit(n.fullName) || hit(n.email) || hit(n.address) || (n.managers || []).some(m => hit(m.name)))) nodes.push({ n, path });
+    const p2 = Object.assign({}, path); if (n.kind === "do" || n.kind === "un") p2.do = n.id; if (n.kind === "dm") p2.dm = n.id;
+    (n.children || []).forEach(c => walk(c, p2)); (n.stores || []).forEach(c => walk(c, p2)); (n.directStores || []).forEach(c => walk(c, p2));
+  };
+  walk(tree.vp, {}); walk(tree.unassigned, {});
+  let h = "";
+  if (nodes.length) { h += `<div class="rh">Hierarchy</div>`; nodes.slice(0, 20).forEach(({ n, path }) => {
+    const a = aggregate(subtreeEmployees(n));
+    h += `<div class="res" onclick="jumpTo(${JSON.stringify(Object.assign({}, path, n.kind === "store" ? { store: n.id } : n.kind === "dm" ? { dm: n.id } : { do: n.id })).replace(/"/g, "&quot;")})"><span class="kind ${n.kind}">${n.kind === "un" ? "?" : n.kind}</span><div class="grow"><div class="t">${esc(n.name)}</div><div class="d">${esc(n.kind === "store" ? n.address : n.email || "")}</div></div>${meterHtml(a)}</div>`; }); }
+  if (people.length) { h += `<div class="rh">People (${people.length}${people.length === 40 ? "+" : ""})</div>`; people.forEach(e => {
+    const ev = evalEmp(e); const st = storeIndex[digits(e.storeNum)];
+    h += `<div class="res" onclick="jumpToEmp('${esc(e.id)}')"><div class="grow"><div class="t">${esc(e.name)} <span class="sub">${esc(e.eeCode || "")}</span></div><div class="d">${esc(posLabel(e.pos))}${e.train ? " (training)" : ""} · ${esc(st ? st.name : e.storeDesc || "no store")}</div></div><div class="certs">${ev.required ? `<span class="pill ${ev.compliant ? "ok" : "bad"}">${ev.counts.ok}/${ev.required} certs</span>` : '<span class="pill na">none required</span>'}</div></div>`; }); }
+  if (!h) h = `<div class="empty">No matches for "${esc($("q").value)}".</div>`;
+  box.innerHTML = h; box.style.display = "block"; $("tree").style.display = "none";
+}
+window.jumpTo = function (path) { clearSearch(); open = { do: path.do || null, dm: path.dm || null, store: path.store || null }; render(); scrollToOpen(); };
+window.jumpToEmp = function (id) {
+  const e = employees[id]; clearSearch();
+  const st = e && storeIndex[digits(e.storeNum)];
+  if (st) {
+    let path = { store: st.id };
+    const walk = (n, p) => { if (n.id === st.id) { path = Object.assign({}, p, { store: st.id }); return; }
+      const p2 = Object.assign({}, p); if (n.kind === "do" || n.kind === "un") p2.do = n.id; if (n.kind === "dm") p2.dm = n.id;
+      (n.children || []).forEach(c => walk(c, p2)); (n.stores || []).forEach(c => walk(c, p2)); (n.directStores || []).forEach(c => walk(c, p2)); };
+    walk(tree.vp, {}); walk(tree.unassigned, {});
+    open = { do: path.do || null, dm: path.dm || null, store: st.id };
+  } else open = { do: null, dm: null, store: "orphans" };
+  selectedId = id; selectedVirtualNode = null; render(); scrollToOpen();
+};
+function scrollToOpen() { setTimeout(() => { const el = document.querySelector(".emp.sel") || document.querySelector(".node.open .node.open .node.open") ; if (el) el.scrollIntoView({ block: "center", behavior: "smooth" }); }, 50); }
+
+/* ============================================================
+   SETTINGS
+   ============================================================ */
+window.openSettings = function () {
+  if (!unlocked) { openPw(); return; }
+  $("certRows").innerHTML = "";
+  Object.keys(config.certs).forEach(k => addCertRow(k, config.certs[k]));
+  renderReqGrid();
+  $("sWarnDays").value = config.warnDays || 30; $("sGreen").value = config.greenPct || 90; $("sAmber").value = config.amberPct || 70;
+  $("sView").value = config.viewCode || ""; $("sEdit").value = config.editPassword || "";
+  $("setErr").textContent = "";
+  $("setModal").classList.add("active");
+};
+window.addCertRow = function (key, c) {
+  const k = key || ("cert_" + Date.now().toString(36));
+  const d = document.createElement("div"); d.className = "cert-row"; d.dataset.key = k;
+  d.innerHTML = `<input class="ck-label" placeholder="Certificate name" value="${esc(c ? c.label : "")}" oninput="renderReqGrid()"><input class="ck-months" type="number" min="0" placeholder="valid (mo)" value="${c && c.months ? c.months : ""}"><button class="x" title="Remove" onclick="this.parentNode.remove(); renderReqGrid()">×</button>`;
+  $("certRows").appendChild(d);
+  if (!key) { d.querySelector(".ck-label").focus(); renderReqGrid(); }
+};
+function readCertRows() { const o = {}; document.querySelectorAll("#certRows .cert-row").forEach(r => { const l = r.querySelector(".ck-label").value.trim(); if (!l) return; const m = Number(r.querySelector(".ck-months").value) || 0; o[r.dataset.key] = { label: l, months: m }; }); return o; }
+let reqDraft = null;
+window.renderReqGrid = function () {
+  if (!reqDraft) reqDraft = JSON.parse(JSON.stringify({ r: config.requirements || {}, t: config.trainingRequirements || {} }));
+  // capture current ticks before re-render
+  document.querySelectorAll("#reqGrid input[type=checkbox]").forEach(cb => { const { pos, cert, kind } = cb.dataset; const bag = kind === "t" ? reqDraft.t : reqDraft.r; const arr = (bag[pos] = bag[pos] || []).filter(x => x !== cert); if (cb.checked) arr.push(cert); bag[pos] = arr; });
+  const certs = readCertRows(); const keys = Object.keys(certs);
+  let h = `<div class="req-grid" style="--n:${keys.length}"><div class="h"></div>${keys.map(k => `<div class="h">${esc(certs[k].label)}</div>`).join("")}`;
+  POSITIONS.forEach(p => {
+    h += `<div class="n">${esc(p.label)}</div>${keys.map(k => `<div class="c"><input type="checkbox" data-pos="${p.key}" data-cert="${k}" data-kind="r" ${(reqDraft.r[p.key] || []).includes(k) ? "checked" : ""}></div>`).join("")}`;
+    h += `<div class="n" style="color:var(--muted);font-weight:500;padding-left:18px;">↳ ${esc(p.label)} trainee</div>${keys.map(k => `<div class="c"><input type="checkbox" data-pos="${p.key}" data-cert="${k}" data-kind="t" ${(reqDraft.t[p.key] || []).includes(k) ? "checked" : ""}></div>`).join("")}`;
+  });
+  $("reqGrid").innerHTML = h + `</div><p style="font-size:.7rem;color:var(--muted);margin-top:6px;">A trainee row with nothing ticked means trainees follow the main row.</p>`;
+};
+window.saveSettings = async function () {
+  renderReqGrid();   // flush ticks into reqDraft
+  const certs = readCertRows();
+  const clean = bag => { const o = {}; Object.keys(bag).forEach(p => { const a = (bag[p] || []).filter(k => certs[k]); if (a.length) o[p] = a; }); return o; };
+  const next = { certs, requirements: clean(reqDraft.r), trainingRequirements: clean(reqDraft.t),
+                 warnDays: Number($("sWarnDays").value) || 30, greenPct: Number($("sGreen").value) || 90, amberPct: Number($("sAmber").value) || 70,
+                 viewCode: $("sView").value.trim() || config.viewCode, editPassword: $("sEdit").value.trim() || config.editPassword, updatedAt: Date.now() };
+  try { await FS.setDoc(FS.doc(FS.db, "config", "app"), next); reqDraft = null; closeModal("setModal"); toast("Settings saved"); }
+  catch (e) { $("setErr").textContent = "Couldn't save: " + e.message; }
+};
+
+/* ============================================================
+   ACCESS
+   ============================================================ */
+window.closeModal = id => { $(id).classList.remove("active"); if (id === "setModal") reqDraft = null; };
+function openPw() { $("pwInput").value = ""; $("pwErr").textContent = ""; $("pwModal").classList.add("active"); setTimeout(() => $("pwInput").focus(), 80); }
+window.toggleLock = function () { if (unlocked) setLock(true); else openPw(); };
+window.confirmUnlock = function () {
+  if ($("pwInput").value.trim() !== config.editPassword) { $("pwErr").textContent = "Incorrect password."; return; }
+  const who = prompt("Your name (recorded on uploads):", sessionName() === "editor" ? "" : sessionName());
+  if (who) try { localStorage.setItem("trainmi_editor", who.trim()); } catch (e) {}
+  setLock(false); closeModal("pwModal");
+};
+function setLock(locked) {
+  unlocked = !locked; document.body.classList.toggle("unlocked", unlocked);
+  const b = $("lockBtn"); b.textContent = unlocked ? "🔓 Editing" : "🔒 Locked"; b.classList.toggle("unlocked", unlocked);
+  render();
+}
+window.submitGate = function () {
+  const v = $("gateInput").value.trim();
+  if (v !== config.viewCode) { $("gateErr").textContent = "Incorrect access code. Contact IT Support for access."; $("gateInput").value = ""; return; }
+  try { sessionStorage.setItem("trainmiViewOk", "1"); } catch (e) {}
+  $("gate").classList.add("hidden");
+};
+
+/* ============================================================
+   STARTUP
+   ============================================================ */
+async function loadFindMi() {
+  const conn = $("conn");
+  try {
+    const r = await fetch(FINDMI_URL + "?_=" + Date.now(), { cache: "no-store" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    findmi = await r.json();
+    buildTree(); conn.classList.add("ok"); conn.lastChild.textContent = "FindMi + Firestore";
+    render();
+  } catch (e) {
+    conn.lastChild.textContent = "FindMi unreachable";
+    $("tree").innerHTML = `<div class="node"><div class="empty">Couldn't load the FindMi directory (${esc(e.message)}). <a href="#" onclick="location.reload();return false;">Reload</a></div></div>`;
+  }
+}
+function startFirestore() {
+  FS.onSnapshot(FS.doc(FS.db, "config", "app"), snap => {
+    if (snap.exists()) config = Object.assign({}, DEFAULT_CONFIG, snap.data(), { certs: snap.data().certs || DEFAULT_CONFIG.certs, requirements: snap.data().requirements || {} });
+    render();
+  }, e => console.warn("config", e));
+  FS.onSnapshot(FS.collection(FS.db, "employees"), snap => {
+    const next = {}; snap.forEach(d => next[d.id] = Object.assign({ id: d.id }, d.data()));
+    employees = next; render(); if (searchQ) renderSearch();
+  }, e => { $("conn").lastChild.textContent = "Firestore error: " + e.code; });
+}
+(function init() {
+  let ok = false; try { ok = sessionStorage.getItem("trainmiViewOk") === "1"; } catch (e) {}
+  if (ok) $("gate").classList.add("hidden"); else setTimeout(() => $("gateInput").focus(), 100);
+  if (window.FS) startFirestore(); else window.addEventListener("firebase-ready", startFirestore, { once: true });
+  loadFindMi();
+  document.addEventListener("keydown", e => { if (e.key === "Escape") { if (selectedId) { selectedId = null; render(); } document.querySelectorAll(".backdrop.active").forEach(b => b.classList.remove("active")); } });
+})();
+</script>
+</body>
+</html>
