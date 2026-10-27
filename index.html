@@ -338,6 +338,11 @@
         <label>Amber at ≥ <input id="sAmber" type="number" style="width:60px;padding:4px 6px;">%</label>
       </div>
 
+      <div class="sect">Store number aliases</div>
+      <p style="font-size:.76rem;color:var(--muted);margin:4px 0 8px;">When payroll's store number differs from FindMi's, map it here. Name matches are applied automatically and listed below so you can confirm them; unmatched roster stores are pre-filled for you to pick a FindMi store.</p>
+      <div id="aliasRows"></div>
+      <button class="btn xs" onclick="addAliasRow()">+ Add alias</button>
+
       <div class="sect">Access</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px;">
         <div class="fg"><label>View access code</label><input id="sView"></div>
@@ -474,14 +479,45 @@ function fmtDate(iso) { if (!iso) return ""; const d = new Date(iso + "T00:00:00
 /* ============================================================
    FINDMI -> HIERARCHY
    ============================================================ */
-function isBK(r) {
-  if (r.division) return r.division === "bk";
-  return /burger\s*king|\bbk\b/i.test(r.storeName || "");
+// Restaurants only: Burger King and Subway. C-Store / Car Wash are excluded.
+// Mirrors FindMi's storeDivision(): saved division wins, name is the fallback.
+function isRestaurant(r) {
+  const d = String(r.division || "").trim();
+  if (d) return d === "bk" || d === "subway";
+  return /burger\s*king|\bbk\b|subway/i.test(r.storeName || "");
 }
+function brandOf(r) { const d = String(r.division || "").trim(); if (d) return d; return /subway/i.test(r.storeName || "") ? "subway" : "bk"; }
+
+/* ---- Store resolution: roster store number -> FindMi store node ----
+   HR payroll numbers don't always match FindMi's (e.g. payroll 35270 = FindMi #28683 Sunnyvale).
+   Order: exact number -> saved alias (Settings) -> auto name match on the store description. */
+let autoAlias = {};   // payroll num -> FindMi num, learned from names (not persisted)
+function storeWords(name) {
+  return String(name || "").toLowerCase().replace(/burger\s*king|subway|\bbk\b|#|\d+/g, " ").replace(/[^a-z ]+/g, " ").split(/\s+/).filter(w => w.length > 2 && !["the", "and"].includes(w));
+}
+function resolveStore(emp) {
+  const num = digits(emp.storeNum);
+  if (num && storeIndex[num]) return storeIndex[num];
+  const al = (config.storeAliases || {})[num]; if (al && storeIndex[digits(al)]) return storeIndex[digits(al)];
+  if (num && autoAlias[num] !== undefined) return autoAlias[num] ? storeIndex[autoAlias[num]] : null;
+  // name fallback: every distinctive word of the HR store desc must appear in exactly one FindMi store name
+  const words = storeWords(emp.storeDesc);
+  let hit = null;
+  if (words.length) {
+    const wantSubway = /subway/i.test(emp.storeDesc || "");
+    const cands = Object.values(storeIndex).filter(n => (n.brand === "subway") === wantSubway && words.every(w => (n.fullName || "").toLowerCase().includes(w)));
+    if (cands.length === 1) hit = cands[0];
+  }
+  if (num) autoAlias[num] = hit ? hit.num : "";
+  return hit;
+}
+function storeNumOf(emp) { const n = resolveStore(emp); return n ? n.num : ""; }
 function storeShort(r) {
   const n = digits(r.storeNumber);
-  let s = String(r.storeName || "").replace(/burger\s*king/i, "").replace(/#?\s*\d{3,6}/g, "").replace(/[-\s•.,/#]+$/, "").replace(/^[-\s•.,/#]+/, "").replace(/\s+/g, " ").trim();
-  return (s || r.storeName || "Store") + (n ? " · #" + n : "");
+  let s = String(r.storeName || "").replace(/burger\s*king|subway/i, "").replace(/#?\s*\d{3,6}/g, "").replace(/[-\s•.,/#]+$/, "").replace(/^[-\s•.,/#]+/, "").replace(/\s+/g, " ").trim();
+  const brand = brandOf(r) === "subway" ? "Subway" : "";
+  if (!s) return (brand || r.storeName || "Store") + (n && !brand ? " · #" + n : n ? " #" + n : "");
+  return (brand ? brand + " " : "") + s + (n ? " · #" + n : "");
 }
 function coachIds(r) {
   let ids = [];
@@ -501,7 +537,7 @@ function managersOf(r) {
 function buildTree() {
   const d = findmi || {};
   const directors = d.directors || {}, coaches = d.areaCoaches || {}, rests = d.restaurants || {}, staff = d.vps || {};
-  storeIndex = {};
+  storeIndex = {}; autoAlias = {};
 
   // VP: Sam, resolved from Support Staff by email (name fallback).
   let vpRec = Object.values(staff).find(s => (s.email || "").trim().toLowerCase() === VP_EMAIL)
@@ -512,12 +548,12 @@ function buildTree() {
   const storeNode = r => {
     const num = digits(r.storeNumber) || ((String(r.storeName || "").match(/\b(\d{3,6})\b/) || [])[1] || "");
     const node = { kind: "store", id: "store_" + (num || r.id), num, name: storeShort(r), fullName: r.storeName || "",
-                   address: r.address || "", phone: r.phone || "", email: r.email || "", managers: managersOf(r),
+                   address: r.address || "", phone: r.phone || "", email: r.email || "", managers: managersOf(r), brand: brandOf(r),
                    dmIds: coachIds(r).filter(id => coaches[id]), doId: directors[r.assignedDirectorId] ? r.assignedDirectorId : "" };
     if (num) storeIndex[num] = node;
     return node;
   };
-  const bkStores = Object.values(rests).filter(isBK).map(storeNode);
+  const bkStores = Object.values(rests).filter(isRestaurant).map(storeNode);
 
   const dmNode = c => ({ kind: "dm", id: "fm_" + c.id, fmId: c.id, name: c.name, email: c.email || "", phone: c.phone || "", pos: "DM", stores: [] });
   const dmNodes = {}; Object.values(coaches).forEach(c => dmNodes[c.id] = dmNode(c));
@@ -554,7 +590,7 @@ function buildTree() {
 // Everyone at a store: active employees whose storeNum matches (FindMi managers get merged in as badges).
 function storeEmployees(node) {
   const num = node.num;
-  const list = Object.values(employees).filter(e => e.status !== "T" && digits(e.storeNum) === num);
+  const list = Object.values(employees).filter(e => e.status !== "T" && storeNumOf(e) === num);
   list.sort((a, b) => ((POS[a.pos] || {}).rank ?? 9) - ((POS[b.pos] || {}).rank ?? 9) || a.name.localeCompare(b.name));
   // FindMi says who the GM/AGM are. Attach a badge to the matching roster row;
   // a FindMi manager missing from the roster shows as a ghost card.
@@ -643,11 +679,11 @@ function render() {
 function renderStrip() {
   const all = subtreeEmployees(tree.vp).concat(subtreeEmployees(tree.unassigned));
   const a = aggregate(all);
-  const orphans = Object.values(employees).filter(e => e.status !== "T" && e.storeNum && !storeIndex[digits(e.storeNum)]).length;
+  const orphans = Object.values(employees).filter(e => e.status !== "T" && e.storeNum && !resolveStore(e)).length;
   const t = tone(a.pct);
   $("strip").innerHTML = `
     <div class="stat ${t}"><div class="l">Compliance</div><div class="v c-${t}">${a.pct == null ? "—" : a.pct + "%"}</div><div class="s">${a.compliant} of ${a.tracked} fully certified</div></div>
-    <div class="stat"><div class="l">People</div><div class="v">${a.total}</div><div class="s">${Object.keys(storeIndex).length} BK stores · ${Object.values(employees).filter(e => e.status !== "T").length} on roster</div></div>
+    <div class="stat"><div class="l">People</div><div class="v">${a.total}</div><div class="s">${Object.keys(storeIndex).length} restaurants · ${Object.values(employees).filter(e => e.status !== "T").length} on roster</div></div>
     <div class="stat bad"><div class="l">Missing</div><div class="v c-bad">${a.missing}</div><div class="s">required certs not on file</div></div>
     <div class="stat bad"><div class="l">Expired</div><div class="v c-bad">${a.expired}</div><div class="s">past their expiry date</div></div>
     <div class="stat warn"><div class="l">Expiring</div><div class="v c-warn">${a.expiring}</div><div class="s">within ${config.warnDays || 30} days</div></div>
@@ -662,9 +698,9 @@ function findNode(id) {
   return hit;
 }
 function orphanNode() {
-  return { kind: "orphans", id: "orphans", name: "Not in a FindMi BK store", address: "Roster rows whose store number has no BK match in FindMi (other brands, office, or a store missing from FindMi)" };
+  return { kind: "orphans", id: "orphans", name: "Not matched to a FindMi restaurant", address: "Roster rows whose store couldn't be matched to a Burger King or Subway in FindMi (C-Store/Car Wash, office, or a payroll number that differs — add an alias in Settings)" };
 }
-function orphanEmployees() { return Object.values(employees).filter(e => e.status !== "T" && !storeIndex[digits(e.storeNum)]); }
+function orphanEmployees() { return Object.values(employees).filter(e => e.status !== "T" && !resolveStore(e)); }
 // Ancestor chain for a node id: [vp, do?, dm?, store?]
 function pathTo(id) {
   if (id === "orphans") return [tree.vp, orphanNode()];
@@ -738,7 +774,7 @@ function renderTree() {
     const all = nodeEmployees(f);
     const list = all.filter(matchesView);
     const onRoster = all.some(e => !e._ghost);
-    if (!onRoster) h += `<div class="notice">Only FindMi's GM/AGM are known here — the HR roster hasn't been imported yet. ${unlocked ? `<button class="btn xs primary" onclick="openImport()" style="margin-left:6px;">⬆ Import roster</button>` : "Unlock editing, then use ⬆ Import roster."}</div>`;
+    if (!onRoster) h += `<div class="notice">Only FindMi's GM/AGM are known here — no roster rows are matched to this store (import the HR sheet, or add a store alias in Settings if payroll uses a different number). ${unlocked ? `<button class="btn xs primary" onclick="openImport()" style="margin-left:6px;">⬆ Import roster</button>` : "Unlock editing, then use ⬆ Import roster."}</div>`;
     h += `<div class="stem"></div><div class="roots-wrap"><div class="roots">`;
     if (!list.length) h += `<div class="empty">${view === "all" ? "Nobody on the roster for this store." : "Nobody matches this filter here."}</div>`;
     let lastPos = null;
@@ -803,7 +839,7 @@ function renderDetail() {
   if (!e) { box.style.display = "none"; return; }
   box.style.display = "block";
   const ev = evalEmp(e);
-  const st = storeIndex[digits(e.storeNum)];
+  const st = resolveStore(e);
   const otherCerts = Object.keys(e.certs || {}).filter(k => !ev.items.some(i => i.key === k) && (e.certs[k] || {}).fileUrl);
   const kv = (k, v, copy) => v ? `<dt>${k}</dt><dd class="${copy ? "cp" : ""}" ${copy ? `onclick="copyText('${esc(v)}')"` : ""}>${esc(v)}</dd>` : "";
   const persisted = !e._virtual && !e._ghost;
@@ -898,7 +934,7 @@ window.openEmpEditor = function (id) {
   $("eTrain").checked = !!(e && e.train);
   const stores = Object.values(storeIndex).sort((a, b) => a.name.localeCompare(b.name));
   $("eStore").innerHTML = `<option value="">— none (above store) —</option>` + stores.map(s => `<option value="${s.num}">${esc(s.name)}</option>`).join("");
-  $("eStore").value = e ? digits(e.storeNum) : (focusNode().kind === "store" ? focusNode().num : "");
+  $("eStore").value = e ? storeNumOf(e) : (focusNode().kind === "store" ? focusNode().num : "");
   $("ePhone").value = e ? (e.phone || "") : ""; $("eEmail").value = e ? (e.email || "") : ""; $("ePers").value = e ? (e.persEmail || "") : "";
   $("eStatus").value = e ? (e.status || "A") : "A";
   $("empDel").style.display = e ? "" : "none";
@@ -1001,15 +1037,15 @@ window.renderImportPreview = function () {
   if (!impRows) return;
   const n = impRows.filter(x => x.kind === "new").length, u = impRows.filter(x => x.kind === "upd").length, s = impRows.filter(x => x.kind === "same").length;
   const rem = $("impRemove").checked ? impAbsent.length : 0;
-  const unknownStores = new Set(impRows.filter(x => x.r.storeNum && !storeIndex[x.r.storeNum]).map(x => x.r.storeDesc || x.r.storeNum));
-  $("impSummary").innerHTML = `<span class="c-ok">+ ${n} new</span> · <span class="c-warn">↻ ${u} updated</span> · <span class="c-na">✓ ${s} unchanged</span>${rem ? ` · <span class="c-bad">− ${rem} to be marked terminated</span>` : ""}${unknownStores.size ? `<div style="font-weight:500;font-size:.74rem;color:var(--warn);margin-top:4px;">⚠ ${unknownStores.size} store${unknownStores.size === 1 ? "" : "s"} in the sheet aren't BK stores in FindMi (${esc([...unknownStores].slice(0, 6).join(", "))}${unknownStores.size > 6 ? "…" : ""}). Those people import anyway and show under "Not in a FindMi BK store".</div>` : ""}`;
+  const unknownStores = new Set(impRows.filter(x => x.r.storeNum && !resolveStore(x.r)).map(x => x.r.storeDesc || x.r.storeNum));
+  $("impSummary").innerHTML = `<span class="c-ok">+ ${n} new</span> · <span class="c-warn">↻ ${u} updated</span> · <span class="c-na">✓ ${s} unchanged</span>${rem ? ` · <span class="c-bad">− ${rem} to be marked terminated</span>` : ""}${unknownStores.size ? `<div style="font-weight:500;font-size:.74rem;color:var(--warn);margin-top:4px;">⚠ ${unknownStores.size} store${unknownStores.size === 1 ? "" : "s"} in the sheet couldn't be matched to a FindMi restaurant (${esc([...unknownStores].slice(0, 6).join(", "))}${unknownStores.size > 6 ? "…" : ""}). Those people import anyway and show under "Not matched". If one is a real BK/Subway with a different payroll number, add a store alias in Settings.</div>` : ""}`;
   $("impApply").disabled = !(n + u + rem);
   const show = impRows.filter(x => x.kind !== "same");
   const fl = { name: "Name", pos: "Position", train: "Training", storeNum: "Store", storeDesc: "Store desc", email: "Email", persEmail: "Personal", phone: "Phone", entity: "Entity", status: "Status", nickname: "Nickname", deptDesc: "Dept" };
   let h = `<table class="imp-table"><thead><tr><th></th><th>EE</th><th>Name</th><th>Position</th><th>Store</th><th>Contact</th><th>Changes</th></tr></thead><tbody>`;
   show.forEach(x => {
     const r = x.r;
-    h += `<tr class="${x.kind}"><td>${x.kind === "new" ? "+ new" : "↻"}</td><td>${esc(r.eeCode)}</td><td>${esc(r.name)}</td><td>${esc(posLabel(r.pos))}${r.train ? " (T)" : ""}<div class="sub">${esc(r.deptDesc)}</div></td><td>${esc(r.storeDesc || r.storeNum)}${r.storeNum && !storeIndex[r.storeNum] ? ' <span class="pill warn">not in FindMi</span>' : ""}</td><td class="sub">${esc([r.phone, r.email || r.persEmail].filter(Boolean).join(" · "))}</td><td>${x.changes.map(f => `<div><b>${fl[f] || f}:</b> <span class="was">${esc(String(x.ex[f] ?? ""))}</span> → ${esc(String(r[f]))}</div>`).join("")}</td></tr>`;
+    h += `<tr class="${x.kind}"><td>${x.kind === "new" ? "+ new" : "↻"}</td><td>${esc(r.eeCode)}</td><td>${esc(r.name)}</td><td>${esc(posLabel(r.pos))}${r.train ? " (T)" : ""}<div class="sub">${esc(r.deptDesc)}</div></td><td>${esc(r.storeDesc || r.storeNum)}${r.storeNum && !resolveStore(r) ? ' <span class="pill warn">not matched</span>' : (r.storeNum && !storeIndex[r.storeNum] ? ` <span class="pill info" title="matched by name/alias">→ #${esc(storeNumOf(r))}</span>` : "")}</td><td class="sub">${esc([r.phone, r.email || r.persEmail].filter(Boolean).join(" · "))}</td><td>${x.changes.map(f => `<div><b>${fl[f] || f}:</b> <span class="was">${esc(String(x.ex[f] ?? ""))}</span> → ${esc(String(r[f]))}</div>`).join("")}</td></tr>`;
   });
   if ($("impRemove").checked) impAbsent.forEach(e => { h += `<tr class="rem"><td>− term</td><td>${esc(e.eeCode)}</td><td>${esc(e.name)}</td><td>${esc(posLabel(e.pos))}</td><td>${esc(e.storeDesc || e.storeNum)}</td><td></td><td>Not in sheet → marked terminated (certs kept)</td></tr>`; });
   if (!show.length && !rem) h += `<tr><td colspan="7" class="empty">Everything already matches the database.</td></tr>`;
@@ -1058,7 +1094,7 @@ window.exportReport = function () {
     }
   };
   walk(tree.vp, { do: "", dm: "" }); walk(tree.unassigned, { do: "(unassigned)", dm: "" });
-  Object.values(employees).filter(e => e.status !== "T" && !storeIndex[digits(e.storeNum)]).forEach(e => rowsOf.push([e, { do: "", dm: "", store: "(not in FindMi) " + (e.storeDesc || e.storeNum || "") }]));
+  Object.values(employees).filter(e => e.status !== "T" && !resolveStore(e)).forEach(e => rowsOf.push([e, { do: "", dm: "", store: "(not in FindMi) " + (e.storeDesc || e.storeNum || "") }]));
   const data = rowsOf.map(([e, c]) => {
     const ev = evalEmp(e); const o = { "EE Code": e.eeCode || "", "Name": e.name, "Position": posLabel(e.pos), "In Training": e.train ? "Yes" : "", "Store": c.store, "DM": c.dm, "Director": c.do, "Compliant": ev.required ? (ev.compliant ? "Yes" : "No") : "n/a", "Missing": ev.counts.missing, "Expired": ev.counts.expired, "Expiring": ev.counts.expiring };
     certKeys.forEach(k => { const c = (e.certs || {})[k]; const req = ev.items.some(i => i.key === k); o[config.certs[k].label] = c && c.fileUrl ? (certStatus(c) + (c.expiresAt ? " " + c.expiresAt : "")) : (req ? "MISSING" : ""); });
@@ -1096,7 +1132,7 @@ function renderSearch() {
     const a = aggregate(subtreeEmployees(n));
     h += `<div class="res" onclick="jumpTo(${JSON.stringify(Object.assign({}, path, n.kind === "store" ? { store: n.id } : n.kind === "dm" ? { dm: n.id } : { do: n.id })).replace(/"/g, "&quot;")})"><span class="kind ${n.kind}">${n.kind === "un" ? "?" : n.kind}</span><div class="grow"><div class="t">${esc(n.name)}</div><div class="d">${esc(n.kind === "store" ? n.address : n.email || "")}</div></div>${meterHtml(a)}</div>`; }); }
   if (people.length) { h += `<div class="rh">People (${people.length}${people.length === 40 ? "+" : ""})</div>`; people.forEach(e => {
-    const ev = evalEmp(e); const st = storeIndex[digits(e.storeNum)];
+    const ev = evalEmp(e); const st = resolveStore(e);
     h += `<div class="res" onclick="jumpToEmp('${esc(e.id)}')"><div class="grow"><div class="t">${esc(e.name)} <span class="sub">${esc(e.eeCode || "")}</span></div><div class="d">${esc(posLabel(e.pos))}${e.train ? " (training)" : ""} · ${esc(st ? st.name : e.storeDesc || "no store")}</div></div><div class="certs">${ev.required ? `<span class="pill ${ev.compliant ? "ok" : "bad"}">${ev.counts.ok}/${ev.required} certs</span>` : '<span class="pill na">none required</span>'}</div></div>`; }); }
   if (!h) h = `<div class="empty">No matches for "${esc($("q").value)}".</div>`;
   box.innerHTML = h; box.style.display = "block"; $("tree").style.display = "none";
@@ -1104,7 +1140,7 @@ function renderSearch() {
 window.jumpTo = function (path) { clearSearch(); setFocus(path.store || path.dm || path.do || tree.vp.id); };
 window.jumpToEmp = function (id) {
   const e = employees[id]; clearSearch();
-  const st = e && storeIndex[digits(e.storeNum)];
+  const st = e && resolveStore(e);
   focusId = st ? st.id : "orphans";
   selectedId = id; selectedVirtualNode = null; render();
   setTimeout(() => { const el = document.querySelector(".leaf.sel"); if (el) el.scrollIntoView({ block: "center", behavior: "smooth" }); }, 60);
@@ -1120,9 +1156,27 @@ window.openSettings = function () {
   renderReqGrid();
   $("sWarnDays").value = config.warnDays || 30; $("sGreen").value = config.greenPct || 90; $("sAmber").value = config.amberPct || 70;
   $("sView").value = config.viewCode || ""; $("sEdit").value = config.editPassword || "";
+  renderAliasRows();
   $("setErr").textContent = "";
   $("setModal").classList.add("active");
 };
+function renderAliasRows() {
+  const box = $("aliasRows"); box.innerHTML = "";
+  const saved = config.storeAliases || {};
+  const seen = new Set();
+  Object.keys(saved).forEach(k => { addAliasRow(k, saved[k], "saved"); seen.add(k); });
+  // auto name matches (confirmable) and unmatched payroll stores (need a pick)
+  const byNum = {};
+  Object.values(employees).filter(e => e.status !== "T" && e.storeNum).forEach(e => { const n = digits(e.storeNum); if (!storeIndex[n] && !seen.has(n)) byNum[n] = byNum[n] || { desc: e.storeDesc || "", n: 0, hit: resolveStore(e) }; if (byNum[n]) byNum[n].n++; });
+  Object.keys(byNum).sort().forEach(n => addAliasRow(n, byNum[n].hit ? byNum[n].hit.num : "", byNum[n].hit ? "auto" : "none", byNum[n].desc + " · " + byNum[n].n + " people"));
+}
+window.addAliasRow = function (payroll, fm, kind, hint) {
+  const d = document.createElement("div"); d.className = "cert-row"; d.style.gridTemplateColumns = "150px 1fr 36px";
+  const opts = `<option value="">— not a restaurant / skip —</option>` + Object.values(storeIndex).sort((a, b) => a.name.localeCompare(b.name)).map(st => `<option value="${st.num}" ${st.num === digits(fm || "") ? "selected" : ""}>${esc(st.name)}</option>`).join("");
+  d.innerHTML = `<div><input class="al-pay" placeholder="Payroll #" value="${esc(payroll || "")}" style="width:100%"><div class="sub" style="font-size:.66rem;">${esc(hint || "")}${kind === "auto" ? ' <span class="pill info">auto-matched by name — save to confirm</span>' : kind === "none" ? ' <span class="pill warn">unmatched</span>' : ""}</div></div><select class="al-fm">${opts}</select><button class="x" title="Remove" onclick="this.parentNode.remove()">×</button>`;
+  $("aliasRows").appendChild(d);
+};
+function readAliasRows() { const o = {}; document.querySelectorAll("#aliasRows .cert-row").forEach(r => { const p = digits(r.querySelector(".al-pay").value), f = r.querySelector(".al-fm").value; if (p && f) o[p] = f; }); return o; }
 window.addCertRow = function (key, c) {
   const k = key || ("cert_" + Date.now().toString(36));
   const d = document.createElement("div"); d.className = "cert-row"; d.dataset.key = k;
@@ -1150,7 +1204,7 @@ window.saveSettings = async function () {
   const clean = bag => { const o = {}; Object.keys(bag).forEach(p => { const a = (bag[p] || []).filter(k => certs[k]); if (a.length) o[p] = a; }); return o; };
   const next = { certs, requirements: clean(reqDraft.r), trainingRequirements: clean(reqDraft.t),
                  warnDays: Number($("sWarnDays").value) || 30, greenPct: Number($("sGreen").value) || 90, amberPct: Number($("sAmber").value) || 70,
-                 viewCode: $("sView").value.trim() || config.viewCode, editPassword: $("sEdit").value.trim() || config.editPassword, updatedAt: Date.now() };
+                 storeAliases: readAliasRows(), viewCode: $("sView").value.trim() || config.viewCode, editPassword: $("sEdit").value.trim() || config.editPassword, updatedAt: Date.now() };
   try { await FS.setDoc(FS.doc(FS.db, "config", "app"), next); reqDraft = null; closeModal("setModal"); toast("Settings saved"); }
   catch (e) { $("setErr").textContent = "Couldn't save: " + e.message; }
 };
@@ -1198,11 +1252,11 @@ async function loadFindMi() {
 function startFirestore() {
   FS.onSnapshot(FS.doc(FS.db, "config", "app"), snap => {
     if (snap.exists()) config = Object.assign({}, DEFAULT_CONFIG, snap.data(), { certs: snap.data().certs || DEFAULT_CONFIG.certs, requirements: snap.data().requirements || {} });
-    render();
+    autoAlias = {}; render();
   }, e => console.warn("config", e));
   FS.onSnapshot(FS.collection(FS.db, "employees"), snap => {
     const next = {}; snap.forEach(d => next[d.id] = Object.assign({ id: d.id }, d.data()));
-    employees = next; render(); if (searchQ) renderSearch();
+    employees = next; autoAlias = {}; render(); if (searchQ) renderSearch();
   }, e => { $("conn").lastChild.textContent = "Firestore error: " + e.code; });
 }
 (function init() {
