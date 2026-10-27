@@ -326,6 +326,7 @@
     <button class="hbtn edit-only" onclick="openImport()">⬆ Import roster</button>
     <button class="hbtn" onclick="exportReport()">⬇ Report</button>
     <button class="hbtn edit-only" onclick="openSettings()">⚙ Settings</button>
+    <button class="hbtn" onclick="signOut()" title="Sign out">⏻</button>
   </div>
 </header>
 
@@ -1375,6 +1376,16 @@ function renderSelf() {
   box.style.display = "block";
 }
 
+window.signOut = function () {
+  try { sessionStorage.removeItem("trainmiViewOk"); sessionStorage.removeItem("trainmiSelf"); } catch (e) {}
+  if (unlocked) setLock(true);
+  selectedId = null; selfId = null; focusId = null; clearSearch();
+  $("selfView").style.display = "none";
+  document.querySelectorAll(".backdrop.active").forEach(b => b.classList.remove("active"));
+  $("gateInput").value = ""; $("gateErr").textContent = "";
+  $("gate").classList.remove("hidden"); gateMode("mgr");
+  render();
+};
 window.submitGate = function () {
   const v = $("gateInput").value.trim();
   if (v !== config.viewCode) { $("gateErr").textContent = "Incorrect access code. Contact IT Support for access."; $("gateInput").value = ""; return; }
