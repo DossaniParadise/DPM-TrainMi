@@ -71,6 +71,7 @@
   .anc:hover { border-color: var(--navy); background: var(--tint); }
   .anc .kind { font-size: .56rem; }
   .anc-link { width: 2px; height: 14px; background: var(--line-2); }
+  .ancestors::after { content: ""; width: 2px; height: 14px; background: var(--line-2); }
   .focus { margin: 0 auto; max-width: 560px; background: var(--surface); border: 2px solid var(--navy); border-radius: 14px; padding: 14px 18px; box-shadow: var(--shadow-md); position: relative; }
   .focus .fh { display: flex; align-items: flex-start; gap: 10px; }
   .focus .ttl { font-size: 1.15rem; white-space: normal; }
@@ -188,7 +189,23 @@
   .gate.hidden { display: none; }
   .gate .box { background: #fff; border-radius: 12px; padding: 28px 26px; width: 100%; max-width: 340px; text-align: center; box-shadow: 0 18px 50px rgba(0,0,0,.35); }
   .gate .logo { font-family: var(--font-display); font-weight: 700; color: var(--navy); letter-spacing: .06em; font-size: 1.1rem; }
-  .gate input { width: 100%; text-align: center; letter-spacing: .28em; font-size: 1rem; margin: 14px 0 10px; }
+  .gate input, .gate select { width: 100%; font-size: 1rem; margin: 10px 0 0; }
+  .gate #gateInput { text-align: center; letter-spacing: .28em; }
+  .gate .btn { margin-top: 12px; }
+  .gate .gate-seg { margin-top: 14px; }
+  .gate .gate-seg button { padding: 7px 16px; }
+  /* self-service */
+  .self { position: fixed; inset: 0; z-index: 900; overflow-y: auto; background: var(--bg); padding: 0 0 40px; }
+  .self .top { background: var(--navy); border-bottom: 3px solid var(--red); color: #fff; padding: 14px 16px; }
+  .self .top h1 { font-family: var(--font-display); font-size: 1rem; letter-spacing: .06em; text-transform: uppercase; }
+  .self .top .who { font-size: 1.3rem; font-weight: 800; margin-top: 8px; }
+  .self .top .meta { font-size: .8rem; color: #c7c3f1; }
+  .self .body { max-width: 560px; margin: 0 auto; padding: 14px 16px; }
+  .self .big { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 16px; text-align: center; box-shadow: var(--shadow-sm); }
+  .self .big .n { font-size: 2.4rem; font-weight: 800; line-height: 1; }
+  .self .big .t { font-size: .8rem; color: var(--muted); margin-top: 4px; }
+  .self .cert { background: #fff; }
+  .self .out { display: block; width: 100%; margin-top: 18px; }
   .gate .btn { width: 100%; }
 
   /* import table */
@@ -211,8 +228,62 @@
   #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(12px); background: #111827; color: #fff; padding: 9px 16px; border-radius: 999px; font-size: .82rem; font-weight: 600; z-index: 4000; opacity: 0; pointer-events: none; transition: all .18s; box-shadow: 0 6px 20px rgba(0,0,0,.28); }
   #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   footer { font-size: .7rem; color: var(--muted); text-align: center; padding: 12px; }
+  .sub a { color: inherit; text-decoration: none; } .sub a:hover { text-decoration: underline; }
+  .sub .cp { cursor: pointer; }
   @media (max-width: 1099px) {
     .detail { position: fixed; inset: auto 0 0 0; max-height: 85dvh; border-radius: 14px 14px 0 0; z-index: 400; box-shadow: 0 -10px 40px rgba(0,0,0,.3); }
+  }
+  /* ---- phones (portrait + landscape) ---- */
+  @media (max-width: 760px) {
+    body { font-size: 13px; }
+    header { padding: 8px 12px; gap: 8px; }
+    .brand span { display: none; }
+    .search-wrap { order: 3; flex: 1 1 100%; max-width: none; }
+    .hdr-actions { margin-left: auto; gap: 6px; }
+    .hbtn { padding: 5px 9px; font-size: .72rem; }
+    .conn span { display: none; }
+    main { padding: 10px 12px 60px; }
+    .strip { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .stat { padding: 7px 8px; border-radius: 8px; } .stat .v { font-size: 1.15rem; } .stat .s { display: none; } .stat .l { font-size: .58rem; }
+    .toolbar { gap: 6px; } .crumbs { flex: 1 1 100%; font-size: .74rem; }
+    .focus { padding: 12px 14px; } .focus .ttl { font-size: 1rem; }
+    .focus .fm { flex-direction: column; align-items: stretch; }
+    .focus .meter, .leaf .meter { width: 100%; } .focus .meter .bar { flex: 1; width: auto; }
+    .roots { gap: 16px 8px; padding: 12px 0 8px; }
+    .roots::before { left: 4%; right: 4%; }
+    .leaf, .leaf.emp { width: calc(50% - 4px); min-width: 150px; padding: 8px 10px; }
+    .leaf .foot { flex-direction: column; gap: 1px; }
+    .meter .pct { font-size: .85rem; min-width: 40px; }
+    .anc { font-size: .72rem; padding: 4px 10px; }
+    .modal .mb { padding: 10px; }
+    .req-grid { font-size: .66rem; grid-template-columns: 120px repeat(var(--n, 7), minmax(50px, 1fr)); overflow-x: auto; }
+    .kv { grid-template-columns: 76px 1fr; }
+    .detail { max-height: 80dvh; padding: 14px; }
+  }
+  @media (max-width: 420px) {
+    .leaf, .leaf.emp { width: 100%; min-width: 0; }
+    .strip { grid-template-columns: repeat(3, 1fr); }
+    .hdr-actions .hbtn { padding: 5px 7px; }
+  }
+  /* landscape phones: short viewport — keep header compact, let strip go to one row */
+  @media (max-height: 480px) and (orientation: landscape) {
+    header { position: static; flex-wrap: nowrap; padding: 6px 12px; }
+    .brand span { display: none; }
+    .search-wrap { flex: 1 1 200px; } .search-wrap input { padding-top: 7px; padding-bottom: 7px; }
+    .hbtn { padding: 5px 9px; font-size: .72rem; } .conn span { display: none; }
+    main { padding-top: 8px; }
+    .strip { margin-bottom: 8px; gap: 6px; } .stat { padding: 6px 10px; } .stat .v { font-size: 1.1rem; }
+    .toolbar { margin-bottom: 6px; }
+    .ancestors { flex-direction: row; justify-content: center; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+    .anc-link { width: 10px; height: 2px; align-self: center; }
+    .ancestors::after { display: none; }
+    .focus { padding: 10px 14px; max-width: 640px; } .focus .ttl { font-size: 1rem; }
+    .stem { height: 16px; } .roots { padding-top: 10px; }
+    .strip { grid-template-columns: repeat(6, 1fr); }
+    .stat .s { display: none; }
+    .detail { max-height: 92dvh; top: auto; }
+    .gate .box { padding: 14px 18px; }
+    .gate .logo { font-size: .9rem; } .gate .box > p { display: none; }
   }
 </style>
 </head>
@@ -221,12 +292,26 @@
 <div id="gate" class="gate">
   <div class="box">
     <div class="logo">DPM TrainMi</div>
-    <p style="font-size:.8rem;color:var(--muted);margin-top:6px;">Certification tracker. Contact IT Support for access.</p>
-    <input type="password" id="gateInput" inputmode="numeric" placeholder="Access code" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();submitGate();}">
-    <div class="err" id="gateErr"></div>
-    <button class="btn primary" onclick="submitGate()">View Tracker</button>
+    <p style="font-size:.8rem;color:var(--muted);margin-top:6px;">Certification tracker</p>
+    <div class="seg gate-seg"><button class="on" id="gtEmp" onclick="gateMode('emp')">My status</button><button id="gtMgr" onclick="gateMode('mgr')">Management</button></div>
+    <div id="gateEmp">
+      <input type="text" id="gLast" placeholder="Last name" autocomplete="family-name" autocapitalize="words" onkeydown="if(event.key==='Enter'){event.preventDefault();submitSelf();}">
+      <input type="text" id="gCode" placeholder="Paycom employee code (e.g. A8G3)" autocomplete="off" autocapitalize="characters" onkeydown="if(event.key==='Enter'){event.preventDefault();submitSelf();}">
+      <select id="gStore"><option value="">Loading stores…</option></select>
+      <div class="err" id="gateErrEmp"></div>
+      <button class="btn primary" onclick="submitSelf()">See my certifications</button>
+    </div>
+    <div id="gateMgr" style="display:none;">
+      <p style="font-size:.76rem;color:var(--muted);margin-top:10px;">Contact IT Support for access.</p>
+      <input type="password" id="gateInput" inputmode="numeric" placeholder="Access code" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();submitGate();}">
+      <div class="err" id="gateErr"></div>
+      <button class="btn primary" onclick="submitGate()">View Tracker</button>
+    </div>
   </div>
 </div>
+
+<!-- Employee self-service view -->
+<div id="selfView" class="self" style="display:none;"></div>
 
 <header>
   <div class="brand"><h1>DPM TrainMi</h1><span>Certification tracker</span></div>
@@ -259,10 +344,10 @@
   <div id="results" class="results" style="display:none;"></div>
   <div class="layout" id="layout">
     <div id="tree"></div>
-    <div id="detail" style="display:none;"></div>
+    <div id="detail" class="detail" style="display:none;"></div>
   </div>
 </main>
-<footer>DPM TrainMi · v1.0 · Hierarchy and GM/AGM alignments come live from DPM FindMi · Roster and certificates live in Firestore (dpm-trainmi)</footer>
+<footer>DPM TrainMi · v1.3 · Hierarchy and GM/AGM alignments come live from DPM FindMi · Roster and certificates live in Firestore (dpm-trainmi)</footer>
 
 <!-- Password modal -->
 <div class="backdrop" id="pwModal">
@@ -732,11 +817,13 @@ function personChip(node) {
   const col = { ok: "#16a34a", warn: "#f59e0b", bad: "#e8091b", na: "#cbd5e1" }[t];
   return `<span class="person-chip" onclick="event.stopPropagation(); selectPerson('${esc(rec.id)}', ${JSON.stringify(node.id)})"><span class="dot" style="background:${col}"></span>${esc(posLabel(node.pos))}'s own certs: ${ev.required ? ev.counts.ok + "/" + ev.required : "none required"}</span>`;
 }
+// Returns HTML (already escaped). Contact lines stack: email on one line, phone on the next.
 function nodeSub(node) {
-  if (node.kind === "store") return [node.fullName !== node.name ? node.fullName : "", node.address].filter(Boolean).join(" · ");
+  if (node.kind === "store") return [node.fullName !== node.name ? node.fullName : "", node.address].filter(Boolean).map(esc).join("<br>");
   if (node.kind === "un") return "Stores or DMs with no Director in FindMi";
-  if (node.kind === "orphans") return node.address;
-  return [node.email, fmtPhone(node.phone)].filter(Boolean).join(" · ");
+  if (node.kind === "orphans") return esc(node.address);
+  const ph = fmtPhone(node.phone);
+  return [node.email ? `<span class="cp" onclick="event.stopPropagation();copyText('${esc(node.email)}')">${esc(node.email)}</span>` : "", ph ? `<a href="tel:${esc(ph.replace(/\D/g, ""))}" onclick="event.stopPropagation()">${esc(ph)}</a>` : ""].filter(Boolean).join("<br>");
 }
 function nodeEmployees(node) {
   if (node.kind === "store") return storeEmployees(node);
@@ -759,12 +846,12 @@ function renderTree() {
   // ancestors stacked above, each a small pill
   if (path.length > 1) {
     h += `<div class="ancestors">`;
-    path.slice(0, -1).forEach(n => { h += `<div class="anc" onclick="setFocus('${n.id}')"><span class="kind ${n.kind}">${kindLabel(n.kind)}</span>${esc(n.name)}</div><div class="anc-link"></div>`; });
+    path.slice(0, -1).forEach((n, i, arr) => { h += `<div class="anc" onclick="setFocus('${n.id}')"><span class="kind ${n.kind}">${kindLabel(n.kind)}</span>${esc(n.name)}</div>${i < arr.length - 1 ? '<div class="anc-link"></div>' : ""}`; });
     h += `</div>`;
   }
   // focus card
   const agg = aggregate(nodeEmployees(f));
-  h += `<div class="focus"><div class="fh"><span class="kind ${f.kind}">${kindLabel(f.kind)}</span><div class="grow"><div class="ttl">${esc(f.name)}</div><div class="sub">${esc(nodeSub(f))}</div></div></div>
+  h += `<div class="focus"><div class="fh"><span class="kind ${f.kind}">${kindLabel(f.kind)}</span><div class="grow"><div class="ttl">${esc(f.name)}</div><div class="sub">${nodeSub(f)}</div></div></div>
         <div class="fm">${f.pos ? personChip(f) : `<span class="sub">${esc(countLabel(f))}</span>`}${meterHtml(agg)}</div>`;
   if (f.kind === "store" && f.managers && f.managers.length) h += `<div class="sub" style="margin-top:6px;">FindMi: ${f.managers.map(m => esc((m.title || "Mgr") + " " + personName(m.name))).join(" · ")}</div>`;
   h += `</div>`;
@@ -802,7 +889,7 @@ function nodeLeaf(n) {
   const gm = n.kind === "store" ? (n.managers || []).find(m => /^gm$/i.test(m.title || "")) : null;
   return `<div class="leaf" onclick="setFocus('${n.id}')">
     <div class="lh"><span class="kind ${n.kind}">${kindLabel(n.kind)}</span><div class="grow"><div class="ttl">${esc(n.name)}</div></div></div>
-    <div class="sub">${esc(gm ? "GM " + personName(gm.name) : n.kind === "store" ? n.address : nodeSub(n))}</div>
+    <div class="sub">${gm ? esc("GM " + personName(gm.name)) : n.kind === "store" ? esc(n.address) : nodeSub(n)}</div>
     ${meterHtml(a)}
     <div class="foot"><span>${esc(countLabel(n))}</span><span>${a.tracked ? a.compliant + "/" + a.tracked + " certified" : ""}${a.missing + a.expired ? ` · <span class="c-bad">${a.missing + a.expired} gaps</span>` : ""}${a.expiring ? ` · <span class="c-warn">${a.expiring} expiring</span>` : ""}</span></div>
   </div>`;
@@ -1226,6 +1313,68 @@ function setLock(locked) {
   const b = $("lockBtn"); b.textContent = unlocked ? "🔓 Editing" : "🔒 Locked"; b.classList.toggle("unlocked", unlocked);
   render();
 }
+/* ---- Employee self-service ---- */
+let gMode = "emp";
+window.gateMode = function (m) {
+  gMode = m;
+  $("gateEmp").style.display = m === "emp" ? "" : "none"; $("gateMgr").style.display = m === "mgr" ? "" : "none";
+  $("gtEmp").classList.toggle("on", m === "emp"); $("gtMgr").classList.toggle("on", m === "mgr");
+  setTimeout(() => (m === "emp" ? $("gLast") : $("gateInput")).focus(), 60);
+};
+function fillGateStores() {
+  const sel = $("gStore"); if (!sel || !tree) return;
+  const cur = sel.value;
+  const stores = Object.values(storeIndex).sort((a, b) => a.name.localeCompare(b.name));
+  sel.innerHTML = `<option value="">Choose your store…</option>` + stores.map(st => `<option value="${st.num}">${esc(st.name)}</option>`).join("");
+  if (cur) sel.value = cur;
+}
+let selfId = null;
+window.submitSelf = function () {
+  const last = normName($("gLast").value), code = $("gCode").value.trim().toUpperCase(), storeNum = $("gStore").value;
+  const err = $("gateErrEmp"); err.textContent = "";
+  if (!last || !code || !storeNum) { err.textContent = "Enter your last name, your Paycom code, and pick your store."; return; }
+  if (!Object.keys(employees).length) { err.textContent = "Still loading the roster — try again in a moment."; return; }
+  const e = employees["ee_" + code] || Object.values(employees).find(x => (x.eeCode || "").toUpperCase() === code);
+  if (!e || e.status === "T") { err.textContent = "No active employee with that code. Check the code on your Paycom profile."; return; }
+  const empLast = normName(e.name).split(" ").pop();
+  const rawLast = String(e.name).includes(",") ? normName(String(e.name).split(",")[0]) : empLast;
+  if (last !== empLast && last !== rawLast && !normName(e.name).includes(last)) { err.textContent = "That last name doesn't match this code."; return; }
+  const st = resolveStore(e);
+  if (!st || st.num !== storeNum) { err.textContent = "That's not the store we have you at. Pick the store on your Paycom profile, or ask your GM."; return; }
+  selfId = e.id;
+  try { sessionStorage.setItem("trainmiSelf", e.id); } catch (x) {}
+  $("gate").classList.add("hidden"); renderSelf();
+};
+window.exitSelf = function () { selfId = null; try { sessionStorage.removeItem("trainmiSelf"); } catch (x) {} $("selfView").style.display = "none"; $("gate").classList.remove("hidden"); gateMode("emp"); };
+function renderSelf() {
+  const box = $("selfView");
+  if (!selfId) { box.style.display = "none"; return; }
+  const e = employees[selfId]; if (!e) { box.style.display = "none"; return; }
+  const ev = evalEmp(e), st = resolveStore(e);
+  const pct = ev.required ? Math.round(ev.counts.ok / ev.required * 100) : null;
+  const t = ev.required ? (ev.compliant ? (ev.counts.expiring ? "warn" : "ok") : "bad") : "na";
+  const headline = !ev.required ? "No certificates are required for your position." : ev.compliant && !ev.counts.expiring ? "You're all set." : ev.compliant ? "Current, but something expires soon." : "Action needed — see below.";
+  const card = (label, status, c) => {
+    const cls = status === "ok" ? "ok" : status === "expiring" ? "warn" : "bad";
+    const txt = status === "ok" ? "Current" + (c && c.expiresAt ? " · expires " + fmtDate(c.expiresAt) : "")
+              : status === "expiring" ? "Expires " + fmtDate(c.expiresAt) + " (" + daysUntil(c.expiresAt) + " days) — renew soon"
+              : status === "expired" ? "Expired " + fmtDate(c.expiresAt) + " — renew and give the certificate to your GM"
+              : "Not on file — give your certificate to your GM";
+    return `<div class="cert ${cls}"><div><div class="cn">${esc(label)}</div><div class="cs">${esc(txt)}</div></div><div class="acts">${c && c.fileUrl ? `<a class="btn xs" href="${esc(c.fileUrl)}" target="_blank" rel="noopener">View</a>` : ""}</div></div>`;
+  };
+  const other = Object.keys(e.certs || {}).filter(k => !ev.items.some(i => i.key === k) && (e.certs[k] || {}).fileUrl);
+  box.innerHTML = `<div class="top"><h1>DPM TrainMi</h1><div class="who">${esc(e.name)}</div><div class="meta">${esc(posLabel(e.pos))}${e.train ? " · In training" : ""} · ${esc(st ? st.name : e.storeDesc || "")}</div></div>
+    <div class="body">
+      <div class="big"><div class="n c-${t}">${pct == null ? "—" : pct + "%"}</div><div class="t">${esc(headline)}</div>${ev.required ? `<div class="t">${ev.counts.ok} of ${ev.required} required certificates current</div>` : ""}</div>
+      <div class="sect">Required for ${esc(posLabel(e.pos))}s</div>
+      ${ev.items.map(i => card(i.label, i.status, i.cert)).join("") || `<div class="empty">Nothing required.</div>`}
+      ${other.length ? `<div class="sect">Other certificates on file</div>` + other.map(k => card((config.certs[k] || {}).label || k, certStatus(e.certs[k]), e.certs[k])).join("") : ""}
+      <p style="font-size:.74rem;color:var(--muted);margin-top:14px;">Something wrong? Ask your General Manager — they can update your certificates in TrainMi.</p>
+      <button class="btn out" onclick="exitSelf()">Sign out</button>
+    </div>`;
+  box.style.display = "block";
+}
+
 window.submitGate = function () {
   const v = $("gateInput").value.trim();
   if (v !== config.viewCode) { $("gateErr").textContent = "Incorrect access code. Contact IT Support for access."; $("gateInput").value = ""; return; }
@@ -1243,7 +1392,7 @@ async function loadFindMi() {
     if (!r.ok) throw new Error("HTTP " + r.status);
     findmi = await r.json();
     buildTree(); conn.classList.add("ok"); conn.lastChild.textContent = "FindMi + Firestore";
-    render();
+    fillGateStores(); render(); renderSelf();
   } catch (e) {
     conn.lastChild.textContent = "FindMi unreachable";
     $("tree").innerHTML = `<div class="node"><div class="empty">Couldn't load the FindMi directory (${esc(e.message)}). <a href="#" onclick="location.reload();return false;">Reload</a></div></div>`;
@@ -1252,16 +1401,16 @@ async function loadFindMi() {
 function startFirestore() {
   FS.onSnapshot(FS.doc(FS.db, "config", "app"), snap => {
     if (snap.exists()) config = Object.assign({}, DEFAULT_CONFIG, snap.data(), { certs: snap.data().certs || DEFAULT_CONFIG.certs, requirements: snap.data().requirements || {} });
-    autoAlias = {}; render();
+    autoAlias = {}; render(); renderSelf();
   }, e => console.warn("config", e));
   FS.onSnapshot(FS.collection(FS.db, "employees"), snap => {
     const next = {}; snap.forEach(d => next[d.id] = Object.assign({ id: d.id }, d.data()));
-    employees = next; autoAlias = {}; render(); if (searchQ) renderSearch();
+    employees = next; autoAlias = {}; render(); renderSelf(); if (searchQ) renderSearch();
   }, e => { $("conn").lastChild.textContent = "Firestore error: " + e.code; });
 }
 (function init() {
-  let ok = false; try { ok = sessionStorage.getItem("trainmiViewOk") === "1"; } catch (e) {}
-  if (ok) $("gate").classList.add("hidden"); else setTimeout(() => $("gateInput").focus(), 100);
+  let ok = false; try { ok = sessionStorage.getItem("trainmiViewOk") === "1"; selfId = sessionStorage.getItem("trainmiSelf") || null; } catch (e) {}
+  if (ok || selfId) $("gate").classList.add("hidden"); else setTimeout(() => $("gLast").focus(), 100);
   if (window.FS) startFirestore(); else window.addEventListener("firebase-ready", startFirestore, { once: true });
   loadFindMi();
   document.addEventListener("keydown", e => { if (e.key === "Escape") { if (selectedId) { selectedId = null; render(); } document.querySelectorAll(".backdrop.active").forEach(b => b.classList.remove("active")); } });
