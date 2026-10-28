@@ -217,6 +217,18 @@
   .drop { border: 2px dashed var(--line-2); border-radius: 10px; padding: 26px 14px; text-align: center; color: var(--muted); background: var(--surface-2); cursor: pointer; }
   .drop:hover { border-color: var(--navy); background: var(--tint); }
 
+  /* sync */
+  .sync-sect { margin-top: 12px; } .sync-sect h4 { font-size: .68rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; display: flex; gap: 8px; align-items: center; }
+  .sync-sect h4 .n { background: var(--tint-2); color: var(--navy); border-radius: 999px; padding: 1px 8px; font-size: .66rem; }
+  .sy { display: grid; grid-template-columns: 22px 1fr; gap: 8px; align-items: start; padding: 6px 8px; border-bottom: 1px solid var(--line); font-size: .8rem; }
+  .sy input { width: 16px; height: 16px; margin-top: 2px; accent-color: var(--navy); }
+  .sy .t { font-weight: 700; } .sy .d { font-size: .72rem; color: var(--muted); }
+  .sy.info { grid-template-columns: 1fr; }
+  .sy .tag { font-size: .62rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; padding: 1px 6px; border-radius: 999px; margin-right: 6px; }
+  .tag.move { background: var(--info-bg); color: var(--info); } .tag.promote { background: var(--ok-bg); color: var(--ok); } .tag.demote { background: var(--warn-bg); color: var(--warn); }
+  .tag.missing { background: var(--bad-bg); color: var(--bad); } .tag.migrate { background: #ede9fe; color: #5b21b6; } .tag.gone { background: var(--line); color: var(--muted); }
+  .tag.add { background: var(--ok-bg); color: var(--ok); } .tag.rem { background: var(--bad-bg); color: var(--bad); } .tag.chg { background: var(--warn-bg); color: var(--warn); }
+  .sync-ok { background: var(--ok-bg); color: var(--ok); border-radius: 8px; padding: 10px 14px; font-weight: 700; text-align: center; }
   /* settings */
   .req-grid { display: grid; grid-template-columns: 180px repeat(var(--n, 7), minmax(70px, 1fr)); gap: 2px; font-size: .74rem; align-items: center; }
   .req-grid .h { font-weight: 800; text-align: center; font-size: .66rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); padding: 4px 2px; }
@@ -324,6 +336,7 @@
     <span class="conn" id="conn"><i></i><span>Connecting…</span></span>
     <button class="hbtn" id="lockBtn" onclick="toggleLock()">🔒 Locked</button>
     <button class="hbtn edit-only" onclick="openImport()">⬆ Import roster</button>
+    <button class="hbtn" onclick="syncFindMi()" title="Re-read FindMi and show what changed">🔄 Sync FindMi</button>
     <button class="hbtn" onclick="exportReport()">⬇ Report</button>
     <button class="hbtn edit-only" onclick="openSettings()">⚙ Settings</button>
     <button class="hbtn" onclick="signOut()" title="Sign out">⏻</button>
@@ -348,7 +361,16 @@
     <div id="detail" class="detail" style="display:none;"></div>
   </div>
 </main>
-<footer>DPM TrainMi · v1.3 · Hierarchy and GM/AGM alignments come live from DPM FindMi · Roster and certificates live in Firestore (dpm-trainmi)</footer>
+<footer>DPM TrainMi · v1.4 · Hierarchy and GM/AGM alignments come live from DPM FindMi · Roster and certificates live in Firestore (dpm-trainmi)</footer>
+
+<!-- Sync modal -->
+<div class="backdrop" id="syncModal">
+  <div class="modal wide">
+    <div class="mh"><h3>Sync from FindMi</h3><button class="x" onclick="closeModal('syncModal')">×</button></div>
+    <div class="mb" id="syncBody"></div>
+    <div class="mf"><span id="syncMeta" style="margin-right:auto;font-size:.72rem;color:var(--muted);align-self:center;"></span><button class="btn" onclick="closeModal('syncModal')">Close</button><button class="btn ok" id="syncApply" onclick="applySync()" disabled>Apply selected</button></div>
+  </div>
+</div>
 
 <!-- Password modal -->
 <div class="backdrop" id="pwModal">
@@ -1111,7 +1133,12 @@ function parseImport(rows) {
   const FIELDS = ["name", "pos", "train", "storeNum", "storeDesc", "email", "persEmail", "phone", "entity", "status", "nickname", "deptDesc"];
   impRows = incoming.map(r => {
     const ex = employees[r.id];
-    if (!ex) return { r, kind: "new", changes: [] };
+    if (!ex) {
+      // A record without an EE code (added by FindMi sync or by hand) with the same name → link it, keep its certs
+      const orphan = Object.values(employees).find(e => !e.id.startsWith("ee_") && !e.id.startsWith("fm_") && e.status !== "T" && samePerson(e.name, r.name));
+      if (orphan) return { r, kind: "link", changes: [], linkFrom: orphan };
+      return { r, kind: "new", changes: [] };
+    }
     const changes = FIELDS.filter(f => String(ex[f] ?? "") !== String(r[f] ?? "") && !(f === "train" && !!ex[f] === !!r[f]) && !(r[f] === "" && f !== "status"));   // never blank a field
     return { r, kind: changes.length ? "upd" : "same", changes, ex };
   });
@@ -1123,17 +1150,17 @@ function parseImport(rows) {
 let impAbsent = [];
 window.renderImportPreview = function () {
   if (!impRows) return;
-  const n = impRows.filter(x => x.kind === "new").length, u = impRows.filter(x => x.kind === "upd").length, s = impRows.filter(x => x.kind === "same").length;
+  const n = impRows.filter(x => x.kind === "new" || x.kind === "link").length, u = impRows.filter(x => x.kind === "upd").length, s = impRows.filter(x => x.kind === "same").length, lk = impRows.filter(x => x.kind === "link").length;
   const rem = $("impRemove").checked ? impAbsent.length : 0;
   const unknownStores = new Set(impRows.filter(x => x.r.storeNum && !resolveStore(x.r)).map(x => x.r.storeDesc || x.r.storeNum));
-  $("impSummary").innerHTML = `<span class="c-ok">+ ${n} new</span> · <span class="c-warn">↻ ${u} updated</span> · <span class="c-na">✓ ${s} unchanged</span>${rem ? ` · <span class="c-bad">− ${rem} to be marked terminated</span>` : ""}${unknownStores.size ? `<div style="font-weight:500;font-size:.74rem;color:var(--warn);margin-top:4px;">⚠ ${unknownStores.size} store${unknownStores.size === 1 ? "" : "s"} in the sheet couldn't be matched to a FindMi restaurant (${esc([...unknownStores].slice(0, 6).join(", "))}${unknownStores.size > 6 ? "…" : ""}). Those people import anyway and show under "Not matched". If one is a real BK/Subway with a different payroll number, add a store alias in Settings.</div>` : ""}`;
+  $("impSummary").innerHTML = `<span class="c-ok">+ ${n} new${lk ? " (" + lk + " linked to existing records, certs kept)" : ""}</span> · <span class="c-warn">↻ ${u} updated</span> · <span class="c-na">✓ ${s} unchanged</span>${rem ? ` · <span class="c-bad">− ${rem} to be marked terminated</span>` : ""}${unknownStores.size ? `<div style="font-weight:500;font-size:.74rem;color:var(--warn);margin-top:4px;">⚠ ${unknownStores.size} store${unknownStores.size === 1 ? "" : "s"} in the sheet couldn't be matched to a FindMi restaurant (${esc([...unknownStores].slice(0, 6).join(", "))}${unknownStores.size > 6 ? "…" : ""}). Those people import anyway and show under "Not matched". If one is a real BK/Subway with a different payroll number, add a store alias in Settings.</div>` : ""}`;
   $("impApply").disabled = !(n + u + rem);
   const show = impRows.filter(x => x.kind !== "same");
   const fl = { name: "Name", pos: "Position", train: "Training", storeNum: "Store", storeDesc: "Store desc", email: "Email", persEmail: "Personal", phone: "Phone", entity: "Entity", status: "Status", nickname: "Nickname", deptDesc: "Dept" };
   let h = `<table class="imp-table"><thead><tr><th></th><th>EE</th><th>Name</th><th>Position</th><th>Store</th><th>Contact</th><th>Changes</th></tr></thead><tbody>`;
   show.forEach(x => {
     const r = x.r;
-    h += `<tr class="${x.kind}"><td>${x.kind === "new" ? "+ new" : "↻"}</td><td>${esc(r.eeCode)}</td><td>${esc(r.name)}</td><td>${esc(posLabel(r.pos))}${r.train ? " (T)" : ""}<div class="sub">${esc(r.deptDesc)}</div></td><td>${esc(r.storeDesc || r.storeNum)}${r.storeNum && !resolveStore(r) ? ' <span class="pill warn">not matched</span>' : (r.storeNum && !storeIndex[r.storeNum] ? ` <span class="pill info" title="matched by name/alias">→ #${esc(storeNumOf(r))}</span>` : "")}</td><td class="sub">${esc([r.phone, r.email || r.persEmail].filter(Boolean).join(" · "))}</td><td>${x.changes.map(f => `<div><b>${fl[f] || f}:</b> <span class="was">${esc(String(x.ex[f] ?? ""))}</span> → ${esc(String(r[f]))}</div>`).join("")}</td></tr>`;
+    h += `<tr class="${x.kind === "link" ? "new" : x.kind}"><td>${x.kind === "new" ? "+ new" : x.kind === "link" ? "🔗 link" : "↻"}</td><td>${esc(r.eeCode)}</td><td>${esc(r.name)}</td><td>${esc(posLabel(r.pos))}${r.train ? " (T)" : ""}<div class="sub">${esc(r.deptDesc)}</div></td><td>${esc(r.storeDesc || r.storeNum)}${r.storeNum && !resolveStore(r) ? ' <span class="pill warn">not matched</span>' : (r.storeNum && !storeIndex[r.storeNum] ? ` <span class="pill info" title="matched by name/alias">→ #${esc(storeNumOf(r))}</span>` : "")}</td><td class="sub">${esc([r.phone, r.email || r.persEmail].filter(Boolean).join(" · "))}</td><td>${x.kind === "link" ? `<div>Links to existing record <b>${esc(x.linkFrom.name)}</b> (${Object.keys(x.linkFrom.certs || {}).length} certs carried over)</div>` : ""}${x.changes.map(f => `<div><b>${fl[f] || f}:</b> <span class="was">${esc(String(x.ex[f] ?? ""))}</span> → ${esc(String(r[f]))}</div>`).join("")}</td></tr>`;
   });
   if ($("impRemove").checked) impAbsent.forEach(e => { h += `<tr class="rem"><td>− term</td><td>${esc(e.eeCode)}</td><td>${esc(e.name)}</td><td>${esc(posLabel(e.pos))}</td><td>${esc(e.storeDesc || e.storeNum)}</td><td></td><td>Not in sheet → marked terminated (certs kept)</td></tr>`; });
   if (!show.length && !rem) h += `<tr><td colspan="7" class="empty">Everything already matches the database.</td></tr>`;
@@ -1144,14 +1171,15 @@ window.applyImport = async function () {
   if (!impRows) return;
   const todo = impRows.filter(x => x.kind !== "same");
   const rem = $("impRemove").checked ? impAbsent : [];
-  if (!confirm(`Apply ${todo.filter(x => x.kind === "new").length} new, ${todo.filter(x => x.kind === "upd").length} updated${rem.length ? ", " + rem.length + " terminated" : ""}?`)) return;
+  if (!confirm(`Apply ${todo.filter(x => x.kind === "new" || x.kind === "link").length} new, ${todo.filter(x => x.kind === "upd").length} updated${rem.length ? ", " + rem.length + " terminated" : ""}?`)) return;
   $("impApply").disabled = true; $("impApply").textContent = "Writing…";
   try {
-    const ops = [];
+    const ops = [], dels = [];
     todo.forEach(x => {
       const d = Object.assign({}, x.r, { source: "import", updatedAt: Date.now(), importedAt: Date.now() });
       Object.keys(d).forEach(k => { if (d[k] === "" && x.kind === "upd") delete d[k]; });   // keep manual values when the sheet is blank
       if (x.kind === "new") d.createdAt = Date.now();
+      if (x.kind === "link") { const o = Object.assign({}, employees[x.linkFrom.id] || x.linkFrom); delete o.id; Object.assign(d, { certs: o.certs || {}, createdAt: o.createdAt || Date.now(), linkedFrom: x.linkFrom.id }); if (!d.phone && o.phone) d.phone = o.phone; dels.push(x.linkFrom.id); }
       ops.push([x.r.id, d]);
     });
     rem.forEach(e => ops.push([e.id, { status: "T", terminatedAt: Date.now(), updatedAt: Date.now() }]));
@@ -1160,6 +1188,7 @@ window.applyImport = async function () {
       ops.slice(i, i + 400).forEach(([id, d]) => b.set(FS.doc(FS.db, "employees", id), d, { merge: true }));
       await b.commit();
     }
+    if (dels.length) { const b2 = FS.writeBatch(FS.db); dels.forEach(id => b2.delete(FS.doc(FS.db, "employees", id))); await b2.commit(); }
     toast("Imported " + ops.length + " records");
     closeModal("impModal");
   } catch (e) { alert("Import failed: " + e.message); }
@@ -1396,6 +1425,148 @@ window.submitGate = function () {
 /* ============================================================
    STARTUP
    ============================================================ */
+/* ============================================================
+   SYNC FROM FINDMI
+   A snapshot of the hierarchy is kept in config/findmi_snapshot. Syncing re-reads FindMi,
+   shows hierarchy changes vs. the snapshot, and proposes roster updates. Certificates are
+   never touched: they live on the person's record, so a move only changes storeNum and a
+   promotion only changes pos (the new position's requirements apply automatically).
+   ============================================================ */
+let fmSnapshot = null;          // last saved snapshot
+let syncPlan = null;
+function snapshotFromFindMi() {
+  const d = findmi || {}, dirs = d.directors || {}, coaches = d.areaCoaches || {};
+  const snap = { at: Date.now(), stores: {}, dms: {}, dos: {}, vp: tree ? tree.vp.name : "" };
+  Object.values(storeIndex).forEach(n => {
+    const gm = (n.managers || []).find(m => /^gm$/i.test(m.title || "")), agm = (n.managers || []).find(m => /^agm$/i.test(m.title || ""));
+    snap.stores[n.num] = { name: n.name, dm: n.dmIds.map(id => coaches[id] ? coaches[id].name : id).sort(), do: dirs[n.doId] ? dirs[n.doId].name : (n.dmIds.length && coaches[n.dmIds[0]] && dirs[coaches[n.dmIds[0]].assignedDirectorId] ? dirs[coaches[n.dmIds[0]].assignedDirectorId].name : ""), gm: gm ? personName(gm.name) : "", agm: agm ? personName(agm.name) : "" };
+  });
+  Object.values(coaches).forEach(c => snap.dms[c.id] = { name: c.name, do: dirs[c.assignedDirectorId] ? dirs[c.assignedDirectorId].name : "" });
+  Object.values(dirs).forEach(x => snap.dos[x.id] = { name: x.name });
+  return snap;
+}
+function diffSnapshots(prev, cur) {
+  const out = [];
+  if (!prev) return out;
+  const P = prev.stores || {}, C = cur.stores || {};
+  Object.keys(C).forEach(num => {
+    const a = P[num], b = C[num];
+    if (!a) { out.push({ tag: "add", text: `New store: ${b.name}` + (b.dm.length ? ` under ${b.dm.join(", ")}` : "") }); return; }
+    if (a.dm.join("|") !== b.dm.join("|")) out.push({ tag: "chg", text: `${b.name}: DM ${a.dm.join(", ") || "—"} → ${b.dm.join(", ") || "—"}` });
+    if (a.do !== b.do) out.push({ tag: "chg", text: `${b.name}: Director ${a.do || "—"} → ${b.do || "—"}` });
+    if (a.gm !== b.gm) out.push({ tag: "chg", text: `${b.name}: GM ${a.gm || "—"} → ${b.gm || "—"}` });
+    if (a.agm !== b.agm) out.push({ tag: "chg", text: `${b.name}: AGM ${a.agm || "—"} → ${b.agm || "—"}` });
+    if (a.name !== b.name) out.push({ tag: "chg", text: `Store renamed: ${a.name} → ${b.name}` });
+  });
+  Object.keys(P).forEach(num => { if (!C[num]) out.push({ tag: "rem", text: `Store removed from FindMi: ${P[num].name}` }); });
+  const PD = prev.dms || {}, CD = cur.dms || {};
+  Object.keys(CD).forEach(id => { if (!PD[id]) out.push({ tag: "add", text: `New DM: ${CD[id].name}` + (CD[id].do ? ` (under ${CD[id].do})` : "") }); else if (PD[id].do !== CD[id].do) out.push({ tag: "chg", text: `DM ${CD[id].name}: Director ${PD[id].do || "—"} → ${CD[id].do || "—"}` }); else if (PD[id].name !== CD[id].name) out.push({ tag: "chg", text: `DM renamed: ${PD[id].name} → ${CD[id].name}` }); });
+  Object.keys(PD).forEach(id => { if (!CD[id]) out.push({ tag: "rem", text: `DM removed: ${PD[id].name}` }); });
+  const PO = prev.dos || {}, CO = cur.dos || {};
+  Object.keys(CO).forEach(id => { if (!PO[id]) out.push({ tag: "add", text: `New Director: ${CO[id].name}` }); });
+  Object.keys(PO).forEach(id => { if (!CO[id]) out.push({ tag: "rem", text: `Director removed: ${PO[id].name}` }); });
+  if (prev.vp && cur.vp && prev.vp !== cur.vp) out.push({ tag: "chg", text: `VP: ${prev.vp} → ${cur.vp}` });
+  return out;
+}
+function rankOf(p) { return POS[p] ? POS[p].rank : 9; }
+function planRosterSync() {
+  const acts = [], claimed = new Set();
+  const active = Object.values(employees).filter(e => e.status !== "T");
+  const findByName = (name, posHint) => { const hits = active.filter(e => samePerson(e.name, name)); if (hits.length <= 1) return hits[0]; return hits.find(e => e.pos === posHint) || hits.find(e => /^(GM|AGM)$/.test(e.pos)) || hits[0]; };
+  // 1) GM / AGM per store, per FindMi
+  Object.values(storeIndex).sort((a, b) => a.name.localeCompare(b.name)).forEach(node => {
+    (node.managers || []).forEach(m => {
+      const title = String(m.title || "").toUpperCase(); if (!/^(GM|AGM)$/.test(title) || !(m.name || "").trim()) return;
+      const rec = findByName(m.name, title);
+      if (!rec) { acts.push({ type: "missing", name: personName(m.name), pos: title, store: node, phone: m.phone || "" }); return; }
+      if (claimed.has(rec.id)) { acts.push({ type: "info", text: `${rec.name} is also listed as ${title} at ${node.name} — kept at the first store found.` }); return; }
+      claimed.add(rec.id);
+      const cur = resolveStore(rec);
+      const data = {};
+      if (!cur || cur.num !== node.num) { data.storeNum = node.num; data.storeDesc = node.fullName; acts.push({ type: "move", id: rec.id, name: rec.name, pos: title, from: cur ? cur.name : (rec.storeDesc || "no store"), to: node.name, data: { storeNum: node.num, storeDesc: node.fullName }, certs: Object.keys(rec.certs || {}).filter(k => (rec.certs[k] || {}).fileUrl).length }); }
+      if (rec.pos !== title) { const up = rankOf(title) < rankOf(rec.pos); acts.push({ type: up ? "promote" : "demote", id: rec.id, name: rec.name, from: rec.pos, to: title, store: node.name, data: { pos: title, train: false }, certs: Object.keys(rec.certs || {}).filter(k => (rec.certs[k] || {}).fileUrl).length, newReq: requiredCerts({ pos: title }).filter(k => !((rec.certs || {})[k] || {}).fileUrl).map(k => (config.certs[k] || {}).label || k) }); }
+    });
+  });
+  // 2) VP / DO / DM cert records (fm_<id>) whose FindMi node vanished: migrate to the same person's new node, else flag
+  // every person FindMi knows above store level, whether or not they currently have BK stores
+  const d = findmi || {}, personNodes = [];
+  Object.values(d.vps || {}).forEach(x => personNodes.push({ id: "fm_" + x.id, name: x.name, pos: (tree && tree.vp.id === "fm_" + x.id) ? "VP" : "", email: x.email, phone: x.phone }));
+  Object.values(d.directors || {}).forEach(x => personNodes.push({ id: "fm_" + x.id, name: x.name, pos: "DO", email: x.email, phone: x.phone }));
+  Object.values(d.areaCoaches || {}).forEach(x => personNodes.push({ id: "fm_" + x.id, name: x.name, pos: "DM", email: x.email, phone: x.phone }));
+  const byId = {}; personNodes.forEach(n => byId[n.id] = n);
+  Object.values(employees).filter(e => e.id.startsWith("fm_")).forEach(e => {
+    if (byId[e.id]) { const n = byId[e.id]; if (n.pos && n.pos !== e.pos) acts.push({ type: rankOf(n.pos) < rankOf(e.pos) ? "promote" : "demote", id: e.id, name: e.name, from: e.pos, to: n.pos, data: { pos: n.pos }, certs: Object.keys(e.certs || {}).filter(k => (e.certs[k] || {}).fileUrl).length, newReq: requiredCerts({ pos: n.pos }).filter(k => !((e.certs || {})[k] || {}).fileUrl).map(k => (config.certs[k] || {}).label || k) }); return; }
+    const certs = Object.keys(e.certs || {}).filter(k => (e.certs[k] || {}).fileUrl).length;
+    const dest = personNodes.find(n => n.pos && samePerson(n.name, e.name) && !employees[n.id]);
+    if (dest) acts.push({ type: "migrate", id: e.id, toId: dest.id, name: e.name, from: e.pos, to: dest.pos, certs, data: { pos: dest.pos, name: dest.name, email: dest.email || e.email || "", phone: dest.phone || e.phone || "" } });
+    else acts.push({ type: "gone", id: e.id, name: e.name, pos: e.pos, certs });
+  });
+  return acts;
+}
+window.syncFindMi = async function () {
+  $("syncBody").innerHTML = `<div class="empty">Reading FindMi…</div>`; $("syncApply").disabled = true; $("syncMeta").textContent = ""; $("syncModal").classList.add("active");
+  try {
+    const r = await fetch(FINDMI_URL + "?_=" + Date.now(), { cache: "no-store" }); if (!r.ok) throw new Error("HTTP " + r.status);
+    findmi = await r.json(); buildTree(); autoAlias = {}; fillGateStores(); render();
+  } catch (e) { $("syncBody").innerHTML = `<div class="err" style="padding:10px;">Couldn't reach FindMi: ${esc(e.message)}</div>`; return; }
+  if (fmSnapshot === null) { try { const snap = await new Promise((res, rej) => { const un = FS.onSnapshot(FS.doc(FS.db, "config", "findmi_snapshot"), s => { un(); res(s); }, rej); }); fmSnapshot = snap.exists() ? snap.data() : false; } catch (e) { fmSnapshot = false; } }
+  const cur = snapshotFromFindMi();
+  const hier = diffSnapshots(fmSnapshot || null, cur);
+  const acts = planRosterSync();
+  syncPlan = { cur, hier, acts };
+  renderSyncPlan();
+};
+function renderSyncPlan() {
+  const { cur, hier, acts } = syncPlan;
+  const tagTxt = { move: "Moved", promote: "Promoted", demote: "Position change", missing: "Not on roster", migrate: "New FindMi record", gone: "No longer in FindMi", add: "New", rem: "Removed", chg: "Changed" };
+  let h = "";
+  h += `<div class="sync-sect"><h4>Hierarchy changes since last sync <span class="n">${hier.length}</span></h4>`;
+  if (!fmSnapshot) h += `<div class="sy info"><div class="d">First sync — no previous snapshot to compare against. The current FindMi hierarchy will be saved as the baseline; next time you'll see what changed.</div></div>`;
+  else if (!hier.length) h += `<div class="sy info"><div class="d">No hierarchy changes (stores, DMs, Directors, GMs/AGMs all match the last sync on ${new Date(fmSnapshot.at).toLocaleString()}).</div></div>`;
+  hier.forEach(x => h += `<div class="sy info"><div><span class="tag ${x.tag}">${tagTxt[x.tag]}</span>${esc(x.text)}</div></div>`);
+  h += `</div>`;
+  const actionable = acts.filter(a => a.type !== "info" && a.type !== "gone");
+  h += `<div class="sync-sect"><h4>Roster updates to apply <span class="n">${actionable.length}</span></h4>`;
+  if (!actionable.length) h += `<div class="sync-ok">✓ Every GM/AGM in FindMi is already on the roster at the right store with the right position.</div>`;
+  acts.forEach((a, i) => {
+    const cb = (a.type === "info" || a.type === "gone") ? "" : `<input type="checkbox" data-i="${i}" ${a.type === "missing" ? "" : "checked"} onchange="syncCount()">`;
+    let t = "", d = "";
+    if (a.type === "move") { t = `${esc(a.name)} — ${esc(a.from)} → <b>${esc(a.to)}</b>`; d = `${a.certs} certificate${a.certs === 1 ? "" : "s"} on file move with them (certs belong to the person, not the store).`; }
+    else if (a.type === "promote" || a.type === "demote") { t = `${esc(a.name)} — ${esc(posLabel(a.from))} → <b>${esc(posLabel(a.to))}</b>${a.store ? " at " + esc(a.store) : ""}`; d = `Keeps all ${a.certs} existing certificate${a.certs === 1 ? "" : "s"}.` + (a.newReq && a.newReq.length ? ` Now also needs: <b>${esc(a.newReq.join(", "))}</b>.` : " All requirements for the new position are already on file."); }
+    else if (a.type === "missing") { t = `${esc(a.name)} — ${esc(a.pos)} at ${esc(a.store.name)} per FindMi, but not on the roster`; d = `Tick to create a roster record now (certs can be uploaded right away). When the HR sheet is imported later, the EE code row with the same name is linked to this record so nothing is duplicated or lost.`; }
+    else if (a.type === "migrate") { t = `${esc(a.name)} — ${esc(posLabel(a.from))} → <b>${esc(posLabel(a.to))}</b> (new FindMi record)`; d = `Their ${a.certs} certificate${a.certs === 1 ? "" : "s"} move to the new record.`; }
+    else if (a.type === "gone") { t = `${esc(a.name)} (${esc(posLabel(a.pos))}) is no longer in FindMi`; d = `Record and ${a.certs} certificate${a.certs === 1 ? "" : "s"} are kept; nothing changes. Delete or terminate them manually if they left.`; }
+    else { t = esc(a.text); }
+    h += `<div class="sy ${cb ? "" : "info"}">${cb}<div><div class="t"><span class="tag ${a.type}">${tagTxt[a.type] || "Note"}</span>${t}</div>${d ? `<div class="d">${d}</div>` : ""}</div></div>`;
+  });
+  h += `</div>`;
+  if (!unlocked) h += `<p class="err" style="margin-top:10px;">Editing is locked — unlock to apply roster updates. (The snapshot still saves.)</p>`;
+  $("syncBody").innerHTML = h;
+  $("syncMeta").textContent = `${Object.keys(cur.stores).length} restaurants · ${Object.keys(cur.dms).length} DMs · ${Object.keys(cur.dos).length} Directors in FindMi`;
+  syncCount();
+}
+window.syncCount = function () { const n = document.querySelectorAll("#syncBody input:checked").length; $("syncApply").textContent = n ? `Apply ${n} update${n === 1 ? "" : "s"} & save snapshot` : "Save snapshot"; $("syncApply").disabled = false; };
+window.applySync = async function () {
+  if (!syncPlan) return;
+  const picked = [...document.querySelectorAll("#syncBody input:checked")].map(cb => syncPlan.acts[Number(cb.dataset.i)]);
+  if (picked.length && !unlocked) { openPw(); return; }
+  $("syncApply").disabled = true; $("syncApply").textContent = "Writing…";
+  try {
+    const b = FS.writeBatch(FS.db); const now = Date.now(); const who = sessionName(); const log = [];
+    picked.forEach(a => {
+      if (a.type === "move" || a.type === "promote" || a.type === "demote") { b.set(FS.doc(FS.db, "employees", a.id), Object.assign({}, a.data, { updatedAt: now, syncedAt: now, syncedBy: who }), { merge: true }); log.push((a.type === "move" ? "Moved " : a.type === "promote" ? "Promoted " : "Changed ") + a.name + ": " + (a.from === undefined ? "" : (a.type === "move" ? a.from : posLabel(a.from)) + " → ") + (a.type === "move" ? a.to : posLabel(a.to))); }
+      else if (a.type === "missing") { const id = "m_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); b.set(FS.doc(FS.db, "employees", id), { name: a.name, pos: a.pos, train: false, storeNum: a.store.num, storeDesc: a.store.fullName, phone: fmtPhone(a.phone), status: "A", source: "findmi", createdAt: now, updatedAt: now, syncedBy: who, certs: {} }); log.push("Added " + a.name + " (" + a.pos + " at " + a.store.name + ")"); }
+      else if (a.type === "migrate") { const old = employees[a.id]; const d = Object.assign({}, old, a.data, { updatedAt: now, syncedAt: now, migratedFrom: a.id }); delete d.id; b.set(FS.doc(FS.db, "employees", a.toId), d); b.delete(FS.doc(FS.db, "employees", a.id)); log.push("Migrated " + a.name + " → " + posLabel(a.to)); }
+    });
+    const snap = Object.assign({}, syncPlan.cur, { syncedBy: who, applied: log, hierarchyChanges: syncPlan.hier.map(x => x.text) });
+    b.set(FS.doc(FS.db, "config", "findmi_snapshot"), snap);
+    await b.commit();
+    fmSnapshot = snap;
+    toast(picked.length ? picked.length + " roster update" + (picked.length === 1 ? "" : "s") + " applied" : "Snapshot saved");
+    closeModal("syncModal");
+  } catch (e) { alert("Sync failed: " + e.message); $("syncApply").disabled = false; syncCount(); }
+};
+
 async function loadFindMi() {
   const conn = $("conn");
   try {
